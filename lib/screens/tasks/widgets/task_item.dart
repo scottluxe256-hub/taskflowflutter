@@ -6,8 +6,9 @@ class TaskItemCard extends StatelessWidget {
   final Color catColor;
   final String catName;
   final Function(String, bool) onToggle;
-  final Function(dynamic) onEdit;
-  final Function(String) onDelete;
+  final Function(dynamic)? onEdit;
+  final Function(String)? onDelete;
+  final bool showActions; // Kunci untuk menyembunyikan aksi di Kalender
 
   const TaskItemCard({
     super.key,
@@ -16,8 +17,9 @@ class TaskItemCard extends StatelessWidget {
     required this.catColor,
     required this.catName,
     required this.onToggle,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
+    this.showActions = true, // Defaultnya true (muncul di halaman Tasks)
   });
 
   @override
@@ -48,7 +50,7 @@ class TaskItemCard extends StatelessWidget {
             child: Icon(
               isCompleted ? Icons.check_circle : Icons.circle_outlined, 
               color: isCompleted ? Colors.green : Colors.grey, 
-              size: 26 // Ikon ceklis diperbesar
+              size: 26 
             ),
           ),
           const SizedBox(width: 12),
@@ -85,20 +87,24 @@ class TaskItemCard extends StatelessWidget {
             ),
             child: Text(catName.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: catColor)),
           ),
-          const SizedBox(width: 12),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => onEdit(task),
-                child: Icon(Icons.edit_outlined, size: 24, color: isDarkMode ? Colors.white70 : Colors.black54), // Ikon Edit Diperbesar
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: () => onDelete(task['id']),
-                child: Icon(Icons.delete_outline, size: 24, color: Colors.redAccent), // Ikon Hapus Diperbesar
-              ),
-            ],
-          )
+          
+          // JIKA SHOW ACTIONS TRUE, MUNCULKAN TOMBOL EDIT & HAPUS
+          if (showActions && onEdit != null && onDelete != null) ...[
+            const SizedBox(width: 12),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => onEdit!(task),
+                  child: Icon(Icons.edit_outlined, size: 24, color: isDarkMode ? Colors.white70 : Colors.black54), 
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => onDelete!(task['id']),
+                  child: const Icon(Icons.delete_outline, size: 24, color: Colors.redAccent), 
+                ),
+              ],
+            )
+          ]
         ],
       ),
     );

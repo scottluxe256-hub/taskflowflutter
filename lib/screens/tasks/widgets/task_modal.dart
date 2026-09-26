@@ -100,158 +100,178 @@ class _TaskModalCenterState extends State<TaskModalCenter> {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20)],
+          image: DecorationImage(
+            image: AssetImage(isDarkMode ? 'assets/images/bg_card_dark.webp' : 'assets/images/bg_card.webp'),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter, 
+          ),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BACKGROUND DINAMIS ALA WEB
-              Positioned.fill(
-                child: Image.asset(
-                  isDarkMode ? 'assets/images/bg_card_dark.webp' : 'assets/images/bg_card.webp',
-                  fit: BoxFit.cover,
-                ),
-              ),
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+              // ===============================================
+              // DESAIN HEADER BARU: LOGO & JUDUL RATA TENGAH
+              // ===============================================
+              Center(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.taskToEdit == null ? "Tambah Tugas Baru" : "Edit Detail Tugas", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _titleController,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                      decoration: InputDecoration(
-                        labelText: "Judul Tugas *",
-                        labelStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent),
-                        filled: true,
-                        fillColor: isDarkMode ? Colors.black45 : Colors.white70,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            // Shadow dinamis: Putih tipis di Dark Mode, Hitam tipis di Light Mode
+                            color: isDarkMode ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.2),
+                            blurRadius: 15,
+                            spreadRadius: 1,
+                          )
+                        ]
                       ),
+                      child: Image.asset('assets/images/logo.webp', width: 44, height: 44),
                     ),
                     const SizedBox(height: 12),
-                    
-                    if (!_isCreatingCustomCat) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 50,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(color: isDarkMode ? Colors.black45 : Colors.white70, borderRadius: BorderRadius.circular(16)),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedCategory,
-                                  isExpanded: true,
-                                  dropdownColor: isDarkMode ? Colors.blueGrey.shade900 : Colors.white,
-                                  items: widget.categories.map((c) => DropdownMenuItem(value: c['id'].toString(), child: Text(c['name'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)))).toList(),
-                                  onChanged: (v) => setState(() => _selectedCategory = v),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle, color: Colors.purpleAccent, size: 28),
-                            onPressed: () => setState(() => _isCreatingCustomCat = true),
-                          )
-                        ],
-                      )
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: isDarkMode ? Colors.black45 : Colors.white70, borderRadius: BorderRadius.circular(16)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("Kategori Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                                GestureDetector(
-                                  onTap: () => setState(() => _isCreatingCustomCat = false),
-                                  child: const Text("Batal", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                                )
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _customCatController,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                              decoration: const InputDecoration(hintText: "Nama Kategori...", border: InputBorder.none, isDense: true),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: _presetColors.map((color) => GestureDetector(
-                                onTap: () => setState(() => _selectedCustomColor = color),
-                                child: CircleAvatar(backgroundColor: color, radius: 12, child: _selectedCustomColor == color ? const Icon(Icons.check, size: 14, color: Colors.white) : null),
-                              )).toList(),
-                            )
-                          ],
-                        ),
-                      )
-                    ],
-
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () async {
-                        final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (date != null) {
-                          final time = await showTimePicker(context: context, initialTime: _selectedTime);
-                          if (time != null) setState(() { _selectedDate = date; _selectedTime = time; });
-                        }
-                      },
+                    Text(
+                      widget.taskToEdit == null ? "Tambah Tugas Baru" : "Edit Detail Tugas", 
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87),
+                      textAlign: TextAlign.center, // Bikin teks di tengah persis di bawah logo
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              TextField(
+                controller: _titleController,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: "Judul Tugas *",
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent),
+                  filled: true,
+                  fillColor: isDarkMode ? Colors.black45 : Colors.white70,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              if (!_isCreatingCustomCat) ...[
+                Row(
+                  children: [
+                    Expanded(
                       child: Container(
                         height: 50,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(color: isDarkMode ? Colors.black45 : Colors.white70, borderRadius: BorderRadius.circular(16)),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_month, size: 18, color: Colors.purpleAccent),
-                            const SizedBox(width: 8),
-                            Text("${_selectedDate.day}/${_selectedDate.month} - ${_selectedTime.format(context)}", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
-                          ],
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCategory,
+                            isExpanded: true,
+                            dropdownColor: isDarkMode ? Colors.blueGrey.shade900 : Colors.white,
+                            items: widget.categories.map((c) => DropdownMenuItem(value: c['id'].toString(), child: Text(c['name'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)))).toList(),
+                            onChanged: (v) => setState(() => _selectedCategory = v),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _descController,
-                      maxLines: 3,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                      decoration: InputDecoration(
-                        labelText: "Catatan (Opsional)",
-                        labelStyle: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54),
-                        filled: true,
-                        fillColor: isDarkMode ? Colors.black45 : Colors.white70,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(backgroundColor: isDarkMode ? Colors.blueGrey.shade800 : Colors.grey.shade300, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                            child: Text("Batal", style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _saveData,
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                            child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("Simpan", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                          ),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Colors.purpleAccent, size: 28),
+                      onPressed: () => setState(() => _isCreatingCustomCat = true),
+                    )
                   ],
+                )
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: isDarkMode ? Colors.black45 : Colors.white70, borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Kategori Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                          GestureDetector(
+                            onTap: () => setState(() => _isCreatingCustomCat = false),
+                            child: const Text("Batal", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _customCatController,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                        decoration: const InputDecoration(hintText: "Nama Kategori...", border: InputBorder.none, isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: _presetColors.map((color) => GestureDetector(
+                          onTap: () => setState(() => _selectedCustomColor = color),
+                          child: CircleAvatar(backgroundColor: color, radius: 12, child: _selectedCustomColor == color ? const Icon(Icons.check, size: 14, color: Colors.white) : null),
+                        )).toList(),
+                      )
+                    ],
+                  ),
+                )
+              ],
+
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                  if (date != null) {
+                    final time = await showTimePicker(context: context, initialTime: _selectedTime);
+                    if (time != null) setState(() { _selectedDate = date; _selectedTime = time; });
+                  }
+                },
+                child: Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: isDarkMode ? Colors.black45 : Colors.white70, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month, size: 18, color: Colors.purpleAccent),
+                      const SizedBox(width: 8),
+                      Text("${_selectedDate.day}/${_selectedDate.month} - ${_selectedTime.format(context)}", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descController,
+                maxLines: 3,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: "Catatan (Opsional)",
+                  labelStyle: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54),
+                  filled: true,
+                  fillColor: isDarkMode ? Colors.black45 : Colors.white70,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(backgroundColor: isDarkMode ? Colors.blueGrey.shade800 : Colors.grey.shade300, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                      child: Text("Batal", style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveData,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                      child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("Simpan", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

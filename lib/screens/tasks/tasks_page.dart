@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:task_flow/main.dart'; 
 import 'widgets/task_item.dart';
 import 'widgets/task_modal.dart';
-import '../../utils/sweet_alert.dart'; // Sesuaikan lokasi importnya
+import '../../utils/sweet_alert.dart'; 
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -103,12 +103,11 @@ class _TasksPageState extends State<TasksPage> {
     }).toList();
   }
 
-    Future<void> _toggleTaskDone(String id, bool currentStatus) async {
+  Future<void> _toggleTaskDone(String id, bool currentStatus) async {
     final newStatus = !currentStatus;
     setState(() { final idx = _tasks.indexWhere((t) => t['id'] == id); if (idx != -1) _tasks[idx]['is_completed'] = newStatus; });
     await Supabase.instance.client.from('tasks').update({'is_completed': newStatus}).eq('id', id);
     
-    // Munculin SweetAlert kalau selesai
     if (newStatus) {
       final isDarkMode = Theme.of(context).brightness == Brightness.dark;
       SweetAlert.show(
@@ -123,9 +122,13 @@ class _TasksPageState extends State<TasksPage> {
 
   Future<void> _deleteTask(String id) async {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final task = _tasks.firstWhere((t) => t['id'] == id, orElse: () => null);
+    
+    // MENGHINDARI BUG TYPE ERROR "OR ELSE" DENGAN TRY-CATCH AMAN
+    dynamic taskToDelete;
+    try {
+      taskToDelete = _tasks.firstWhere((t) => t['id'] == id);
+    } catch (_) {}
 
-    // Minta konfirmasi ala SweetAlert sebelum hapus
     SweetAlert.show(
       context: context,
       title: "Hapus Tugas?",
@@ -137,9 +140,8 @@ class _TasksPageState extends State<TasksPage> {
         setState(() => _tasks.removeWhere((t) => t['id'] == id));
         await Supabase.instance.client.from('tasks').update({'is_hidden': true}).eq('id', id);
         
-        // AUTO-DELETE LOGIC: Hapus kategori dari DB kalau udah ga ada tugas lain yang pakai
-        if (task != null && task['category_id'] != null) {
-          final catId = task['category_id'];
+        if (taskToDelete != null && taskToDelete['category_id'] != null) {
+          final catId = taskToDelete['category_id'];
           final countRes = await Supabase.instance.client.from('tasks').select('id').eq('category_id', catId).eq('is_hidden', false);
           if (countRes.isEmpty) {
             await Supabase.instance.client.from('categories').delete().eq('id', catId);
@@ -170,142 +172,167 @@ class _TasksPageState extends State<TasksPage> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Stack(
-      children: [
-        // BACKGROUND BERADA DI STACK BAWAH, ANTI BERGERAK SAAT KEYBOARD NAIK
-        Positioned.fill(
-          child: Image.asset(
-            isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp',
+    return Scaffold(
+      resizeToAvoidBottomInset: false, 
+      backgroundColor: Colors.transparent, 
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85),
+        elevation: 0,
+        titleSpacing: 16,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            children: [
+              Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+              const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)),
+              const SizedBox(width: 8),
+              Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _fetchData,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.purpleAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.refresh, size: 14, color: Colors.purpleAccent),
+                      SizedBox(width: 4),
+                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.dark_mode : Icons.wb_sunny, color: isDarkMode ? Colors.indigo.shade300 : Colors.amber.shade600),
+            onPressed: () => themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, left: 4.0),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
+              child: _avatarUrl.isEmpty ? Text(_userName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) : null,
+            ),
+          )
+        ],
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'),
             fit: BoxFit.cover,
           ),
         ),
-        
-        Scaffold(
-          backgroundColor: Colors.transparent, // Scaffold wajib tembus pandang
-          appBar: AppBar(
-            backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85),
-            elevation: 0,
-            titleSpacing: 16,
-            title: Row(
-              children: [
-                Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(isDarkMode ? Icons.dark_mode : Icons.wb_sunny, color: isDarkMode ? Colors.indigo.shade300 : Colors.amber.shade600),
-                onPressed: () => themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Tugas Saya", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+                          const SizedBox(height: 2),
+                          Text("Kelola tanggung jawab harianmu.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _openTaskModal,
+                      icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                      label: const Text("Tugas Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purpleAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    )
+                  ],
+                ),
               ),
               Padding(
-                padding: const EdgeInsets.only(right: 16.0, left: 4.0),
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.purple.shade100,
-                  backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
-                  child: _avatarUrl.isEmpty ? Text(_userName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) : null,
-                ),
-              )
-            ],
-          ),
-          body: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Tugas Saya", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                            const SizedBox(height: 2),
-                            Text("Kelola tanggung jawab harianmu.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
+                      Row(
+                        children: [
+                          Expanded(child: _buildDropdown(value: _activeCategory, icon: Icons.local_offer_outlined, items: {'semua': 'Semua Kategori', ...{for (var c in _categories) c['name'].toString().toLowerCase(): c['name']}}, onChanged: (v) { setState(() => _activeCategory = v!); }, isDarkMode: isDarkMode)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildDropdown(value: _activeFilter, icon: Icons.filter_alt_outlined, items: {'semua': 'Semua Status', 'today': 'Hari Ini', 'upcoming': 'Mendatang', 'pending': 'Belum Selesai', 'done': 'Selesai'}, onChanged: (v) { setState(() => _activeFilter = v!); }, isDarkMode: isDarkMode)),
+                        ],
                       ),
-                      ElevatedButton.icon(
-                        onPressed: _openTaskModal,
-                        icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                        label: const Text("Tugas Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purpleAccent,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(height: 8),
+                      _buildDropdown(value: _sortBy, icon: Icons.sort, items: {'terbaru': 'Urutkan: Terbaru', 'terlama': 'Urutkan: Terlama'}, onChanged: (v) { setState(() => _sortBy = v!); _fetchData(); }, isDarkMode: isDarkMode),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 40,
+                        decoration: BoxDecoration(color: isDarkMode ? Colors.black26 : Colors.grey.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade300)),
+                        child: TextField(
+                          textAlignVertical: TextAlignVertical.center, 
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
+                          decoration: InputDecoration(
+                            isDense: true, // KUNCI AGAR PADDING SIMETRIS DAN TEKS DI TENGAH
+                            hintText: "Cari tugas atau kategori...",
+                            hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black45),
+                            prefixIcon: Icon(Icons.search, size: 16, color: isDarkMode ? Colors.white54 : Colors.black45),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12), // KUNCI ALIGN CENTER VERTICAL
+                          ),
+                          onChanged: (v) => setState(() => _searchQuery = v),
                         ),
                       )
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _buildDropdown(value: _activeCategory, icon: Icons.local_offer_outlined, items: {'semua': 'Semua Kategori', ...{for (var c in _categories) c['name'].toString().toLowerCase(): c['name']}}, onChanged: (v) { setState(() => _activeCategory = v!); }, isDarkMode: isDarkMode)),
-                            const SizedBox(width: 8),
-                            Expanded(child: _buildDropdown(value: _activeFilter, icon: Icons.filter_alt_outlined, items: {'semua': 'Semua Status', 'today': 'Hari Ini', 'upcoming': 'Mendatang', 'pending': 'Belum Selesai', 'done': 'Selesai'}, onChanged: (v) { setState(() => _activeFilter = v!); }, isDarkMode: isDarkMode)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        _buildDropdown(value: _sortBy, icon: Icons.sort, items: {'terbaru': 'Urutkan: Terbaru', 'terlama': 'Urutkan: Terlama'}, onChanged: (v) { setState(() => _sortBy = v!); _fetchData(); }, isDarkMode: isDarkMode),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 40,
-                          decoration: BoxDecoration(color: isDarkMode ? Colors.black26 : Colors.grey.shade100, borderRadius: BorderRadius.circular(12), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade300)),
-                          child: TextField(
-                            textAlignVertical: TextAlignVertical.center, // BIKIN TEKS DI TENGAH
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
-                            decoration: InputDecoration(
-                              hintText: "Cari tugas atau kategori...",
-                              hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black45),
-                              prefixIcon: Icon(Icons.search, size: 16, color: isDarkMode ? Colors.white54 : Colors.black45),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.only(bottom: 14), // Penyesuaian vertikal
-                            ),
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                          ),
-                        )
-                      ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
+                  child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)) : _filteredTasks.isEmpty ? const Center(child: Text("Kosong ☕", style: TextStyle(fontWeight: FontWeight.bold))) : RawScrollbar(
+                    thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _filteredTasks.length,
+                      itemBuilder: (context, index) {
+                        final task = _filteredTasks[index];
+                        final catData = task['categories'];
+                        String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
+                        String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
+                        return TaskItemCard(
+                          task: task, isDarkMode: isDarkMode, catName: catName, catColor: _getCategoryColor(catColorStr, catName),
+                          onToggle: _toggleTaskDone, onEdit: (t) => _openTaskModal(task: t), onDelete: _deleteTask,
+                        );
+                      },
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
-                    child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)) : _filteredTasks.isEmpty ? const Center(child: Text("Kosong ☕")) : RawScrollbar(
-                      thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
-                      child: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final task = _filteredTasks[index];
-                          final catData = task['categories'];
-                          String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
-                          String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
-                          return TaskItemCard(
-                            task: task, isDarkMode: isDarkMode, catName: catName, catColor: _getCategoryColor(catColorStr, catName),
-                            onToggle: _toggleTaskDone, onEdit: (t) => _openTaskModal(task: t), onDelete: _deleteTask,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
