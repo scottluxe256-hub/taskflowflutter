@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import './dashboard/dashboard_page.dart';
+import './tasks/tasks_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -14,7 +15,7 @@ class _MainNavigationState extends State<MainNavigation> {
   // Placeholder untuk 4 halaman lu
   final List<Widget> _pages = [
     const DashboardPage(),
-    const Center(child: Text("Tampilan Tugas Saya", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+    const TasksPage(),
     const Center(child: Text("Tampilan Kalender", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
     const Center(child: Text("Tampilan Profil", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
   ];
