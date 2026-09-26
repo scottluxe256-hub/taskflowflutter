@@ -97,7 +97,7 @@ class _AuthPageState extends State<AuthPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Image.asset('assets/icons/icon.png', width: 32, height: 32), // Sesuaikan nama icon lu
+                                Image.asset('assets/images/logo.webp', width: 32, height: 32), // Sesuaikan nama icon lu
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Task',
