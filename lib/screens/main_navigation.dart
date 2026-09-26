@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dashboard_page.dart'; // Sesuaikan path jika beda folder
+import '/dashboard/dashboard_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
