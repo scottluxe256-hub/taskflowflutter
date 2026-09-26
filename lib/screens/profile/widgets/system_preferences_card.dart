@@ -28,7 +28,7 @@ class _SystemPreferencesCardState extends State<SystemPreferencesCard> {
   void _simulateRam() {
     if (!mounted) return;
     setState(() {
-      _usedMb = Random().nextDouble() * (60 - 35) + 35; // Random 35-60MB
+      _usedMb = Random().nextDouble() * (60 - 35) + 35; 
       _percent = (_usedMb / _tabLimitMb) * 100;
     });
   }
@@ -40,7 +40,6 @@ class _SystemPreferencesCardState extends State<SystemPreferencesCard> {
   }
 
   void _handleClearCache() {
-    // Simulasi hapus cache
     SweetAlert.show(context: context, title: "Memori Dibersihkan!", message: "File cache sementara berhasil dihapus. Sistem kini lebih ringan.", isSuccess: true, isDarkMode: widget.isDarkMode);
   }
 
@@ -72,7 +71,6 @@ class _SystemPreferencesCardState extends State<SystemPreferencesCard> {
           Text("Sistem & Performa", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)),
           Divider(color: isDark ? Colors.white12 : Colors.black12, height: 24),
           
-          // Indikator RAM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -138,7 +136,11 @@ class _SystemPreferencesCardState extends State<SystemPreferencesCard> {
             backgroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade100,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+            // PERBAIKAN: borderSide diganti jadi side
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12), 
+              side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)
+            ),
           ),
         )
       ],

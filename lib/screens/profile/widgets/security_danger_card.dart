@@ -13,7 +13,7 @@ class SecurityDangerCard extends StatefulWidget {
 
 class _SecurityDangerCardState extends State<SecurityDangerCard> {
   bool _showChangePass = false;
-  String _step = "sending_otp"; // sending_otp, otp, new_password, error
+  String _step = "sending_otp"; 
   String _email = "";
   final _otpCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -87,16 +87,12 @@ class _SecurityDangerCardState extends State<SecurityDangerCard> {
           Text("Keamanan Akun", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)),
           Divider(color: isDark ? Colors.white12 : Colors.black12, height: 24),
           
-          // GANTI PASSWORD
           _buildActionRow("Ganti Password", "Perbarui dengan OTP email", Icons.key, _showChangePass ? "Tutup Form" : "Ganti Password", Colors.purpleAccent, isDark, () {
             if (_showChangePass) setState(() => _showChangePass = false); else _initPasswordReset();
           }),
           
           if (_showChangePass) _buildOtpForm(isDark),
-          
           const SizedBox(height: 16),
-          
-          // HAPUS AKUN
           _buildActionRow("Hapus Akun", "Hapus akun secara permanen", Icons.delete_forever, "Hapus Akun", Colors.redAccent, isDark, _handleDeleteAccount),
         ],
       ),
@@ -151,8 +147,18 @@ class _SecurityDangerCardState extends State<SecurityDangerCard> {
           ),
           ElevatedButton(
             onPressed: onTap,
-            style: ElevatedButton.styleFrom(backgroundColor: isDark ? color.withOpacity(0.2) : color.withOpacity(0.1), elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: color.withOpacity(0.3)))),
-            child: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? color.shade200 : color.shade700)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? color.withOpacity(0.2) : color.withOpacity(0.1), 
+              elevation: 0, 
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+              // PERBAIKAN: borderSide ganti ke side
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12), 
+                side: BorderSide(color: color.withOpacity(0.3))
+              )
+            ),
+            // PERBAIKAN: Hapus shade200/shade700 karena tipe data 'color' biasa gak support itu
+            child: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
           )
         ],
       ),
