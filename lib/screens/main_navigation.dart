@@ -12,11 +12,19 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
-  // Placeholder untuk 4 halaman lu
-  final List<Widget> _pages = [
+  // Pastikan lu udah import CalendarPage di atas!
+
+  late final List<Widget> _pages = [
     const DashboardPage(),
     const TasksPage(),
-    const Center(child: Text("Tampilan Kalender", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+    CalendarPage(
+      onNavigateToTasks: () {
+        // Fungsi ini kepanggil kalau user mencet tombol "Tugas Baru" di Kalender
+        setState(() {
+          _selectedIndex = 1; // 1 = Index halaman TasksPage (Daftar Tugas)
+        });
+      },
+    ),
     const Center(child: Text("Tampilan Profil", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
   ];
 
