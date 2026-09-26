@@ -13,6 +13,7 @@ dependencies:
   supabase_flutter: ^2.5.0
   http: ^1.2.0
   image_picker: ^1.1.2
+  geolocator: ^13.0.0 # INI YANG KURANG!
 
 dev_dependencies:
   flutter_test:

@@ -152,7 +152,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.slate.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.9),
+        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
         boxShadow: [
@@ -336,7 +336,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: isDarkMode ? Colors.slate.shade900.withOpacity(0.8) : Colors.white.withOpacity(0.85), 
+                                color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.8) : Colors.white.withOpacity(0.85), 
                                 borderRadius: BorderRadius.circular(16), 
                                 border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
                                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
@@ -433,7 +433,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       margin: const EdgeInsets.only(bottom: 10),
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: isDarkMode ? Colors.slate.shade800 : Colors.white, 
+                                        color: isDarkMode ? Colors.blueGrey.shade800 : Colors.white, 
                                         borderRadius: BorderRadius.circular(16), 
                                         border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)
                                       ),
