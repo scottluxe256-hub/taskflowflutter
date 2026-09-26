@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/supabase_config.dart';
 import 'screens/auth/auth_page.dart';
 import 'screens/main_navigation.dart';
-import './calendar/calendar_page.dart';
 
 // 1. INI PANEL LISTRIK PUSAT KITA (Global State) untuk Tema
 // Default kita set ikutin tema HP (system)

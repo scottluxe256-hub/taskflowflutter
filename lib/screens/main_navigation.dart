@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import './dashboard/dashboard_page.dart';
 import './tasks/tasks_page.dart';
+import './calendar/calendar_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
