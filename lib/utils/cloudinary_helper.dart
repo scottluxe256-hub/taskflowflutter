@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 
 class CloudinaryHelper {
-  static const String cloudName = "z"; // Cloud name lu
+  static const String cloudName = "z1awtcu6"; // Cloud name lu
   static const String uploadPreset = "taskflow_profil"; // Preset lu
   // URL API Cloudflare Pages lu buat delete image (Jalur Senyap)
   static const String deleteApiUrl = "https://taskflow-2gq.pages.dev/api/delete-image";
