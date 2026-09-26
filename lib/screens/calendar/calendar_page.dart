@@ -76,7 +76,11 @@ class _CalendarPageState extends State<CalendarPage> {
           .eq('is_hidden', false)
           .order('created_at', ascending: false);
           
-      if (mounted) setState(() { _allTasks = response; _isLoading = false; });
+      if (mounted) {
+        setState(() { _allTasks = response; _isLoading = false; });
+        // Update Notifier
+        profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -103,12 +107,6 @@ class _CalendarPageState extends State<CalendarPage> {
     String hex = colorStr.replaceAll('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
-  }
-
-  Future<void> _toggleTaskDone(String id, bool currentStatus) async {
-    final newStatus = !currentStatus;
-    setState(() { final idx = _allTasks.indexWhere((t) => t['id'] == id); if (idx != -1) _allTasks[idx]['is_completed'] = newStatus; });
-    await Supabase.instance.client.from('tasks').update({'is_completed': newStatus}).eq('id', id);
   }
 
   List<dynamic> get _tasksForSelectedDate {
@@ -171,11 +169,20 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.purpleAccent.withOpacity(0.2),
-              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
-              child: _avatarUrl.isEmpty ? Text(_userName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) : null,
+            child: ValueListenableBuilder<Map<String, String>>(
+              valueListenable: profileNotifier,
+              builder: (context, profile, child) {
+                final avatar = profile['avatar'] ?? '';
+                final name = profile['name'] ?? 'U';
+                return CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                  backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty 
+                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) 
+                      : null,
+                );
+              },
             ),
           )
         ],
@@ -328,10 +335,12 @@ class _CalendarPageState extends State<CalendarPage> {
                                     String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
                                     String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
                                     
-                                    // PANGGILAN STATIS: Hilangkan tombol hapus dan edit untuk mode preview!
                                     return TaskItemCard(
-                                      task: task, isDarkMode: isDarkMode, catName: catName, catColor: _getCategoryColor(catColorStr, catName),
-                                      onToggle: _toggleTaskDone, 
+                                      task: task, 
+                                      isDarkMode: isDarkMode, 
+                                      catName: catName, 
+                                      catColor: _getCategoryColor(catColorStr, catName),
+                                      onToggle: (id, status) {}, 
                                       showActions: false, 
                                     );
                                   },

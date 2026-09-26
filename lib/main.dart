@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui'; // Wajib diimport buat efek Blur
+import 'dart:ui'; 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,15 +10,15 @@ import 'screens/main_navigation.dart';
 // 1. INI PANEL LISTRIK PUSAT KITA (Global State) untuk Tema
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
+// 2. INI PANEL LISTRIK PUSAT BARU BUAT PROFIL (Sync Real-time!)
+final ValueNotifier<Map<String, String>> profileNotifier = ValueNotifier({'name': 'User', 'avatar': ''});
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inisialisasi Supabase tetep aman di sini
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-
   runApp(const MyApp());
 }
 
@@ -34,21 +34,14 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'TaskFlow',
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.purple,
-              brightness: Brightness.light,
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple, brightness: Brightness.light),
             useMaterial3: true,
           ),
           darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.purple,
-              brightness: Brightness.dark,
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple, brightness: Brightness.dark),
             useMaterial3: true,
           ),
           themeMode: currentMode, 
-          // GERBANG PERTAMA SEKARANG ADALAH SPLASH SCREEN
           home: const SplashScreen(), 
         );
       },
@@ -57,7 +50,7 @@ class MyApp extends StatelessWidget {
 }
 
 // ==========================================
-// 2. WIDGET SPLASH SCREEN (Animasi Aurora 3 Detik)
+// WIDGET SPLASH SCREEN (Asap Dinamis Cepat)
 // ==========================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -69,51 +62,39 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   double _opacity = 0.0;
   
-  // Controller buat Aurora
-  late AnimationController _auroraController;
-  late Animation<Alignment> _animAwan1;
-  late Animation<Alignment> _animAwan2;
+  late AnimationController _smokeController;
+  late Animation<Alignment> _animKiriAtas;
+  late Animation<Alignment> _animKananBawah;
+  late Animation<Alignment> _animKananAtas;
+  late Animation<Alignment> _animKiriBawah;
 
   @override
   void initState() {
     super.initState();
     
-    // Setup Animasi Aurora (Berjalan cepat selama 3 detik)
-    _auroraController = AnimationController(
-      vsync: this, 
-      duration: const Duration(seconds: 3)
-    );
+    _smokeController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     
-    // Awan 1 gerak dari kiri atas ke kanan bawah
-    _animAwan1 = Tween<Alignment>(begin: Alignment.topLeft, end: Alignment.bottomRight)
-        .animate(CurvedAnimation(parent: _auroraController, curve: Curves.easeInOutSine));
-        
-    // Awan 2 gerak dari kanan bawah ke kiri atas
-    _animAwan2 = Tween<Alignment>(begin: Alignment.bottomRight, end: Alignment.topLeft)
-        .animate(CurvedAnimation(parent: _auroraController, curve: Curves.easeInOutSine));
+    _animKiriAtas = Tween<Alignment>(begin: Alignment.topLeft, end: Alignment.bottomRight).animate(CurvedAnimation(parent: _smokeController, curve: Curves.easeInOutSine));
+    _animKananBawah = Tween<Alignment>(begin: Alignment.bottomRight, end: Alignment.topLeft).animate(CurvedAnimation(parent: _smokeController, curve: Curves.easeInOutSine));
+    _animKananAtas = Tween<Alignment>(begin: Alignment.topRight, end: Alignment.bottomLeft).animate(CurvedAnimation(parent: _smokeController, curve: Curves.easeInOutSine));
+    _animKiriBawah = Tween<Alignment>(begin: Alignment.bottomLeft, end: Alignment.topRight).animate(CurvedAnimation(parent: _smokeController, curve: Curves.easeInOutSine));
     
-    // Gas mulai animasi awan!
-    _auroraController.forward();
+    _smokeController.forward();
 
-    // Mulai animasi Fade In Logo setelah sedikit delay
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) setState(() => _opacity = 1.0);
     });
 
-    // Mulai animasi Fade Out Logo di detik ke-2.5
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) setState(() => _opacity = 0.0);
     });
 
-    // Pindah ke AuthGate di detik ke-3 dengan transisi fade halus
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
+            transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
             transitionDuration: const Duration(milliseconds: 500),
           ),
         );
@@ -123,62 +104,55 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _auroraController.dispose();
+    _smokeController.dispose();
     super.dispose();
+  }
+
+  Widget _buildSmoke(Animation<Alignment> anim, double size, double opacity) {
+    return Align(
+      alignment: anim.value,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [Colors.white.withOpacity(opacity), Colors.transparent],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size.width * 1.5;
+
     return Scaffold(
-      backgroundColor: Colors.black, // Background fix hitam pekat
+      backgroundColor: Colors.black, 
       body: Stack(
         children: [
-          // EFEK AURORA AWAN
           AnimatedBuilder(
-            animation: _auroraController,
+            animation: _smokeController,
             builder: (context, child) {
               return Stack(
                 children: [
-                  Align(
-                    alignment: _animAwan1.value,
-                    child: Container(
-                      width: 350,
-                      height: 350,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [Colors.white.withOpacity(0.15), Colors.transparent],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: _animAwan2.value,
-                    child: Container(
-                      width: 400,
-                      height: 400,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [Colors.white.withOpacity(0.1), Colors.transparent],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildSmoke(_animKiriAtas, size, 0.15),
+                  _buildSmoke(_animKananBawah, size, 0.1),
+                  _buildSmoke(_animKananAtas, size, 0.12),
+                  _buildSmoke(_animKiriBawah, size, 0.15),
                 ],
               );
             },
           ),
           
-          // EFEK BLUR (BIAR AWANNYA JADI SOFT KAYAK AURORA BENERAN)
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60), 
               child: Container(color: Colors.transparent),
             ),
           ),
 
-          // KONTEN LOGO FADE IN / FADE OUT
           Center(
             child: AnimatedOpacity(
               opacity: _opacity,
@@ -186,19 +160,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Logo Aplikasi
                   Image.asset('assets/images/logo.webp', width: 100, height: 100),
                   const SizedBox(height: 16),
-                  // Teks Task Flow
-                  const Text(
-                    "Task Flow", 
-                    style: TextStyle(
-                      fontSize: 28, 
-                      fontWeight: FontWeight.w900, 
-                      color: Colors.white, // Teks fix putih menyesuaikan bg hitam
-                      letterSpacing: 1.2,
-                    )
-                  ),
+                  const Text("Task Flow", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2)),
                 ],
               ),
             ),
@@ -209,9 +173,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 }
 
-// ==========================================
-// 3. AUTH GATE (Pengecek Sesi)
-// ==========================================
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -226,13 +187,9 @@ class _AuthGateState extends State<AuthGate> {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
       if (event == AuthChangeEvent.signedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-        );
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else if (event == AuthChangeEvent.signedOut) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthPage()),
-        );
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const AuthPage()));
       }
     });
   }
@@ -240,9 +197,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
-      return const MainNavigation();
-    }
+    if (session != null) return const MainNavigation();
     return const AuthPage();
   }
 }

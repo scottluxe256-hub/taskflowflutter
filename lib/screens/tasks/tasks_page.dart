@@ -68,7 +68,11 @@ class _TasksPageState extends State<TasksPage> {
           .eq('is_hidden', false)
           .order('created_at', ascending: _sortBy == 'terlama');
           
-      if (mounted) setState(() { _tasks = response; _isLoading = false; });
+      if (mounted) {
+        setState(() { _tasks = response; _isLoading = false; });
+        // Update Notifier
+        profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -123,7 +127,6 @@ class _TasksPageState extends State<TasksPage> {
   Future<void> _deleteTask(String id) async {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // MENGHINDARI BUG TYPE ERROR "OR ELSE" DENGAN TRY-CATCH AMAN
     dynamic taskToDelete;
     try {
       taskToDelete = _tasks.firstWhere((t) => t['id'] == id);
@@ -217,11 +220,20 @@ class _TasksPageState extends State<TasksPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.purpleAccent.withOpacity(0.2),
-              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
-              child: _avatarUrl.isEmpty ? Text(_userName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) : null,
+            child: ValueListenableBuilder<Map<String, String>>(
+              valueListenable: profileNotifier,
+              builder: (context, profile, child) {
+                final avatar = profile['avatar'] ?? '';
+                final name = profile['name'] ?? 'U';
+                return CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                  backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty 
+                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) 
+                      : null,
+                );
+              },
             ),
           )
         ],
@@ -290,12 +302,12 @@ class _TasksPageState extends State<TasksPage> {
                           textAlignVertical: TextAlignVertical.center, 
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
-                            isDense: true, // KUNCI AGAR PADDING SIMETRIS DAN TEKS DI TENGAH
                             hintText: "Cari tugas atau kategori...",
                             hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black45),
+                            contentPadding: EdgeInsets.zero,
+                            prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                             prefixIcon: Icon(Icons.search, size: 16, color: isDarkMode ? Colors.white54 : Colors.black45),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 12), // KUNCI ALIGN CENTER VERTICAL
                           ),
                           onChanged: (v) => setState(() => _searchQuery = v),
                         ),

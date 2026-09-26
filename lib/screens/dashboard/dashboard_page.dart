@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
-// Import panel listrik pusat untuk Dark Mode
 import 'package:task_flow/main.dart'; 
 
 class DashboardPage extends StatefulWidget {
@@ -19,13 +18,11 @@ class _DashboardPageState extends State<DashboardPage> {
   String _avatarUrl = "";
   bool _isLoading = true;
   
-  // Stats
   int _totalTasks = 0;
   int _todayTasksCount = 0;
   int _completedTasks = 0;
   int _pendingTasks = 0;
   
-  // Weather & Location
   String _weatherTemp = "--\u00B0C"; 
   String _weatherLocation = "Menunggu lokasi...";
   
@@ -33,7 +30,6 @@ class _DashboardPageState extends State<DashboardPage> {
   late Timer _timer;
   DateTime _currentTime = DateTime.now();
   
-  // Channel untuk Realtime Supabase
   RealtimeChannel? _taskChannel;
 
   @override
@@ -42,12 +38,10 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchDashboardData();
     _initLocation();
     
-    // Timer Digital
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) setState(() => _currentTime = DateTime.now());
     });
 
-    // SISTEM REAL-TIME
     _taskChannel = Supabase.instance.client
         .channel('public:tasks')
         .onPostgresChanges(
@@ -157,6 +151,8 @@ class _DashboardPageState extends State<DashboardPage> {
             _todayTasksCount = today.length;
             _todayTasks = today;
           });
+          // Update Notifier biar kesinkron!
+          profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
         }
       }
     } catch (e) {
@@ -206,12 +202,12 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.layers, size: 24, color: Colors.purple), // Ikon diperbesar
+                    const Icon(Icons.layers, size: 24, color: Colors.purpleAccent), 
                     const SizedBox(width: 6),
                     Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54))),
                   ],
                 ),
-                const Spacer(), // Biar simetris atas bawah
+                const Spacer(),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -225,14 +221,14 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           Container(
-            width: 44, // Diukur ulang agar pas dengan Donut
+            width: 44, 
             height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.purple.withOpacity(0.15),
-              border: Border.all(color: Colors.purple.withOpacity(0.3))
+              color: Colors.purpleAccent.withOpacity(0.15),
+              border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))
             ),
-            child: const Icon(Icons.layers, color: Colors.purple, size: 22),
+            child: const Icon(Icons.layers, color: Colors.purpleAccent, size: 22), 
           )
         ],
       ),
@@ -257,12 +253,12 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 24, color: color), // Ikon diperbesar
+                    Icon(icon, size: 24, color: color), 
                     const SizedBox(width: 6),
                     Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54))),
                   ],
                 ),
-                const Spacer(), // Biar simetris atas bawah
+                const Spacer(),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -311,6 +307,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final isDaytime = currentHour >= 6 && currentHour < 18;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false, 
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -322,7 +319,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Row(
             children: [
               Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-              const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purple)),
+              const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)), 
               const SizedBox(width: 8),
               Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
               const SizedBox(width: 8),
@@ -334,15 +331,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.purple.withOpacity(0.15),
+                    color: Colors.purpleAccent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                    border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: const [
-                      Icon(Icons.refresh, size: 14, color: Colors.purple),
+                      Icon(Icons.refresh, size: 14, color: Colors.purpleAccent),
                       SizedBox(width: 4),
-                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
                     ],
                   ),
                 ),
@@ -362,118 +359,135 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.purple.shade100,
-              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
-              child: _avatarUrl.isEmpty ? Text(_userName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 14)) : null,
+            child: ValueListenableBuilder<Map<String, String>>(
+              valueListenable: profileNotifier,
+              builder: (context, profile, child) {
+                final avatar = profile['avatar'] ?? '';
+                final name = profile['name'] ?? 'U';
+                return CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                  backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty 
+                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) 
+                      : null,
+                );
+              },
             ),
           )
         ],
       ),
-      // MENGUBAH STACK MENJADI CONTAINER PENUH AGAR BACKGROUND TIDAK BOCOR
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
           image: DecorationImage(
             image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'),
-            fit: BoxFit.cover, // Ini kunci biar full screen mentok
+            fit: BoxFit.cover,
           ),
         ),
         child: SafeArea(
           child: _isLoading 
-            ? const Center(child: CircularProgressIndicator(color: Colors.purple))
+            ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent))
             : RefreshIndicator(
                 onRefresh: _fetchDashboardData,
-                color: Colors.purple,
-                child: SingleChildScrollView(
+                color: Colors.purpleAccent,
+                child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // DESAIN BARU: SAPAAN MEMANJANG (MAX 1 BARIS)
-                      Text(
-                        "Selamat Datang, $_userName! \u{1F44B}", 
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87),
-                        maxLines: 1, // Memanjang, tidak akan jadi 2 baris
-                        overflow: TextOverflow.ellipsis, // Titik-titik jika kepanjangan
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Berikut agenda tugasmu hari ini.", 
-                        style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // DESAIN BARU: CUACA DI KIRI, JAM DI KANAN
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Widget Cuaca
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                              borderRadius: BorderRadius.circular(16), 
-                              border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ValueListenableBuilder<Map<String, String>>(
+                              valueListenable: profileNotifier,
+                              builder: (context, profile, child) {
+                                return Text(
+                                  "Selamat Datang, ${profile['name']}! \u{1F44B}", 
+                                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87),
+                                  maxLines: 1, 
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              }
                             ),
-                            child: Row(
+                            const SizedBox(height: 4),
+                            Text(
+                              "Berikut agenda tugasmu hari ini.", 
+                              style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildWeatherIcon(isDaytime),
-                                const SizedBox(width: 8),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(_weatherTemp, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                    SizedBox(
-                                      width: 80,
-                                      child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
-                                    ),
-                                  ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
+                                    borderRadius: BorderRadius.circular(16), 
+                                    border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
+                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _buildWeatherIcon(isDaytime),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(_weatherTemp, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
+                                    borderRadius: BorderRadius.circular(16), 
+                                    border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
+                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
+                                  ),
+                                  child: Text(
+                                    timeString, 
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purpleAccent.shade100 : Colors.purpleAccent, letterSpacing: 1, fontFamily: 'monospace') 
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          // Widget Jam
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                              borderRadius: BorderRadius.circular(16), 
-                              border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
+                            const SizedBox(height: 24),
+                            
+                            GridView.count(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 2.1, 
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _buildAllTasksCard("Semua Tugas", _totalTasks, isDarkMode),
+                                _buildDonutCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
+                                _buildDonutCard("Selesai", _completedTasks, Icons.check_circle, Colors.green, _totalTasks > 0 ? _completedTasks / _totalTasks : 0, isDarkMode),
+                                _buildDonutCard("Belum Selesai", _pendingTasks, Icons.error_outline, Colors.red, _totalTasks > 0 ? _pendingTasks / _totalTasks : 0, isDarkMode),
+                              ],
                             ),
-                            child: Text(
-                              timeString, 
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purple.shade300 : Colors.purple, letterSpacing: 1, fontFamily: 'monospace')
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 24),
-                      
-                      // 4 CARD YANG SUDAH DIBIKIN GEPENG (Aspect Ratio 2.1)
-                      GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 2.1, // Aspect ratio diperbesar supaya heightnya lebih pendek
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildAllTasksCard("Semua Tugas", _totalTasks, isDarkMode),
-                          _buildDonutCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
-                          _buildDonutCard("Selesai", _completedTasks, Icons.check_circle, Colors.green, _totalTasks > 0 ? _completedTasks / _totalTasks : 0, isDarkMode),
-                          _buildDonutCard("Tertunda", _pendingTasks, Icons.error_outline, Colors.red, _totalTasks > 0 ? _pendingTasks / _totalTasks : 0, isDarkMode),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      Container(
-                        height: 350, 
+                    ),
+                    
+                    SliverFillRemaining(
+                      hasScrollBody: true, 
+                      fillOverscroll: true,
+                      child: Container(
+                        margin: const EdgeInsets.fromLTRB(20, 24, 20, 24), 
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
@@ -487,17 +501,17 @@ class _DashboardPageState extends State<DashboardPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text("Fokus Hari Ini", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                                const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)), 
                               ],
                             ),
                             const SizedBox(height: 16),
                             Expanded(
                               child: _todayTasks.isEmpty
                                 ? Center(
-                                    child: Text("Tidak ada agenda tugas hari ini ", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold))
+                                    child: Text("Tidak ada agenda tugas hari ini ☕", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold))
                                   )
                                 : RawScrollbar(
-                                    thumbColor: Colors.purple.withOpacity(0.5),
+                                    thumbColor: Colors.purpleAccent.withOpacity(0.5), 
                                     radius: const Radius.circular(8),
                                     thickness: 4,
                                     child: ListView.builder(
@@ -538,9 +552,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
         ),

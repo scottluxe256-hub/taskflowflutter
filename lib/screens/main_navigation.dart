@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import './dashboard/dashboard_page.dart';
 import './tasks/tasks_page.dart';
 import './calendar/calendar_page.dart';
+import './profile/profile_page.dart'; // INI YANG KETINGGALAN BOS!
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -12,8 +13,6 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
-
-  // Pastikan lu udah import CalendarPage di atas!
 
   late final List<Widget> _pages = [
     const DashboardPage(),
@@ -26,7 +25,7 @@ class _MainNavigationState extends State<MainNavigation> {
         });
       },
     ),
-    const Center(child: Text("Tampilan Profil", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+    const ProfilePage(),
   ];
 
   @override
