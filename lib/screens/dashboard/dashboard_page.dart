@@ -25,7 +25,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int _pendingTasks = 0;
   
   // Weather & Location
-  String _weatherTemp = "--°C";
+  String _weatherTemp = "--\u00B0C"; // Menggunakan unicode agar tidak jadi tanda tanya
   String _weatherLocation = "Menunggu lokasi...";
   
   List<dynamic> _todayTasks = [];
@@ -48,21 +48,19 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  // Fungsi Tarik Cuaca (Mirip Web)
   Future<void> _fetchWeatherAndLocation([double lat = -6.8580, double lon = 107.9271]) async {
     try {
-      // API Cuaca Open-Meteo
       final weatherRes = await http.get(Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true'));
       if (weatherRes.statusCode == 200) {
         final weatherData = json.decode(weatherRes.body);
         if (weatherData['current_weather'] != null && mounted) {
           setState(() {
-             _weatherTemp = "${weatherData['current_weather']['temperature'].round()}°C";
+             // Menggunakan \u00B0 untuk derajat celcius yang aman
+             _weatherTemp = "${weatherData['current_weather']['temperature'].round()}\u00B0C";
           });
         }
       }
       
-      // API Lokasi BigDataCloud
       final geoRes = await http.get(Uri.parse('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lon&localityLanguage=id'));
       if (geoRes.statusCode == 200) {
         final geoData = json.decode(geoRes.body);
@@ -77,26 +75,25 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Cek GPS HP
   Future<void> _initLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _fetchWeatherAndLocation(); // Fallback Sumedang
+        _fetchWeatherAndLocation(); 
         return;
       }
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-          _fetchWeatherAndLocation(); // Fallback Sumedang
+          _fetchWeatherAndLocation(); 
           return;
         }
       }
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
       _fetchWeatherAndLocation(position.latitude, position.longitude);
     } catch (e) {
-      _fetchWeatherAndLocation(); // Fallback Error
+      _fetchWeatherAndLocation(); 
     }
   }
 
@@ -105,7 +102,6 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        // Coba narik Profile buat dapet Avatar
         try {
           final profileRes = await Supabase.instance.client.from('profiles').select('*').eq('id', user.id).maybeSingle();
           if (profileRes != null && mounted) {
@@ -149,16 +145,88 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Widget _buildStatCard(String title, int count, IconData icon, Color color, double progress, bool isDarkMode) {
+  Widget _buildWeatherIcon(bool isDaytime) {
+    return SizedBox(
+      width: 26,
+      height: 26,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.cloud, color: isDaytime ? Colors.grey.shade400 : Colors.grey.shade600, size: 24),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Icon(
+              isDaytime ? Icons.wb_sunny : Icons.nights_stay,
+              color: isDaytime ? Colors.amber : Colors.indigo.shade300,
+              size: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DESAIN BARU: Card khusus "Semua Tugas" statis
+  Widget _buildAllTasksCard(String title, int count, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.9),
+        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.layers, size: 16, color: Colors.purple),
+                  const SizedBox(width: 6),
+                  Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(count.toString(), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+                  const SizedBox(width: 4),
+                  Text("Tugas", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black38)),
+                ],
+              ),
+            ],
+          ),
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.purple.withOpacity(0.15),
+              border: Border.all(color: Colors.purple.withOpacity(0.3))
+            ),
+            child: const Icon(Icons.layers, color: Colors.purple, size: 24),
+          )
         ],
+      ),
+    );
+  }
+
+  // DESAIN BARU: Card Donut Chart untuk Hari Ini, Selesai, Tertunda
+  Widget _buildDonutCard(String title, int count, IconData icon, Color color, double progress, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -194,9 +262,10 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 6,
+                  strokeWidth: 8, // Lebih tebal mirip donut chart
                   backgroundColor: color.withOpacity(0.15),
                   valueColor: AlwaysStoppedAnimation<Color>(color),
+                  strokeCap: StrokeCap.round, // Efek membulat di ujung air
                 ),
                 Center(
                   child: Text(
@@ -212,36 +281,11 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // Widget Spesial: Ikon Awan+Matahari atau Awan+Bulan
-  Widget _buildWeatherIcon(bool isDaytime) {
-    return SizedBox(
-      width: 26,
-      height: 26,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.cloud, color: isDaytime ? Colors.grey.shade400 : Colors.grey.shade600, size: 24),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Icon(
-              isDaytime ? Icons.wb_sunny : Icons.nights_stay,
-              color: isDaytime ? Colors.amber : Colors.indigo.shade300,
-              size: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Format Jam MURNI tanpa tulisan WIB
     final timeString = "${_currentTime.hour.toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')}";
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // Logika Siang/Malam (06:00 - 18:00 = Siang)
     final currentHour = _currentTime.hour;
     final isDaytime = currentHour >= 6 && currentHour < 18;
 
@@ -251,29 +295,40 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85),
         elevation: 0,
-        title: Row(
-          children: [
-            Text('Mobile Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white24 : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(6)
+        titleSpacing: 16,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            children: [
+              Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+              const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purple)),
+              const SizedBox(width: 8),
+              Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
+              const SizedBox(width: 8),
+              // Tombol Refresh ala Web
+              GestureDetector(
+                onTap: () {
+                  _fetchDashboardData();
+                  _initLocation(); 
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.refresh, size: 14, color: Colors.purple),
+                      SizedBox(width: 4),
+                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                    ],
+                  ),
+                ),
               ),
-              child: Text('2.4', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: Icon(Icons.refresh, size: 20, color: isDarkMode ? Colors.white70 : Colors.black54),
-              onPressed: () {
-                _fetchDashboardData();
-                _initLocation(); // Refresh cuaca juga
-              },
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
-            )
-          ],
+            ],
+          ),
         ),
         actions: [
                     // Tombol Ikon Mode Terang/Gelap (Matahari / Bulan)
@@ -287,7 +342,6 @@ class _DashboardPageState extends State<DashboardPage> {
               themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark;
             },
           ),
-          // Foto Profil Tanpa Username
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
             child: CircleAvatar(
@@ -320,7 +374,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // WIDGET GREETING & CUACA/JAM
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -328,25 +381,24 @@ class _DashboardPageState extends State<DashboardPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text("Selamat Datang,\n$_userName! ", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+                                  // \u{1F44B} adalah unicode untuk emoji  biar anti kotak silang
+                                  Text("Selamat Datang,\n$_userName! \u{1F44B}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
                                   const SizedBox(height: 4),
                                   Text("Berikut agenda tugasmu hari ini.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
                                 ],
                               ),
                             ),
-                            // Glassmorphism Widget Cuaca & Waktu
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.8) : Colors.white.withOpacity(0.85), 
+                                color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
                                 borderRadius: BorderRadius.circular(16), 
                                 border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Seksi Cuaca & Lokasi Dinamis
                                   Row(
                                     children: [
                                       _buildWeatherIcon(isDaytime),
@@ -363,14 +415,12 @@ class _DashboardPageState extends State<DashboardPage> {
                                       ),
                                     ],
                                   ),
-                                  // Garis Pemisah
                                   Container(
                                     height: 24,
                                     width: 1,
                                     margin: const EdgeInsets.symmetric(horizontal: 10),
                                     color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
                                   ),
-                                  // Seksi Waktu
                                   Text(
                                     timeString, 
                                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purple.shade300 : Colors.purple, letterSpacing: 1, fontFamily: 'monospace')
@@ -382,7 +432,6 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         const SizedBox(height: 24),
                         
-                        // GRID STATISTIK
                         GridView.count(
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
@@ -391,77 +440,81 @@ class _DashboardPageState extends State<DashboardPage> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
-                            _buildStatCard("Semua Tugas", _totalTasks, Icons.layers, Colors.purple, 1.0, isDarkMode),
-                            _buildStatCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
-                            _buildStatCard("Selesai", _completedTasks, Icons.check_circle, Colors.green, _totalTasks > 0 ? _completedTasks / _totalTasks : 0, isDarkMode),
-                            _buildStatCard("Tertunda", _pendingTasks, Icons.error_outline, Colors.red, _totalTasks > 0 ? _pendingTasks / _totalTasks : 0, isDarkMode),
+                            _buildAllTasksCard("Semua Tugas", _totalTasks, isDarkMode),
+                            _buildDonutCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
+                            _buildDonutCard("Selesai", _completedTasks, Icons.check_circle, Colors.green, _totalTasks > 0 ? _completedTasks / _totalTasks : 0, isDarkMode),
+                            _buildDonutCard("Tertunda", _pendingTasks, Icons.error_outline, Colors.red, _totalTasks > 0 ? _pendingTasks / _totalTasks : 0, isDarkMode),
                           ],
                         ),
                         const SizedBox(height: 24),
                         
-                        // FOKUS HARI INI
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Fokus Hari Ini", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                            const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Kontainer dengan Fixed Height & Internal Scroll
+                        // DESAIN BARU: Teks judul masuk ke dalam Card Fokus Hari Ini
                         Container(
-                          height: 350, // Height dikunci agar tidak molor
+                          height: 350, 
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.black54 : Colors.white, 
+                            color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
                             borderRadius: BorderRadius.circular(20), 
-                            border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)
+                            border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
                           ),
-                          child: _todayTasks.isEmpty
-                            ? Center(
-                                child: Text("Tidak ada agenda tugas hari ini ", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold))
-                              )
-                            : RawScrollbar(
-                                thumbColor: Colors.purple.withOpacity(0.5),
-                                radius: const Radius.circular(8),
-                                thickness: 4,
-                                child: ListView.builder(
-                                  physics: const BouncingScrollPhysics(), // Scroll Internal Aktif
-                                  padding: const EdgeInsets.all(12),
-                                  itemCount: _todayTasks.length,
-                                  itemBuilder: (context, index) {
-                                    final task = _todayTasks[index];
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 10),
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: isDarkMode ? Colors.blueGrey.shade800 : Colors.white, 
-                                        borderRadius: BorderRadius.circular(16), 
-                                        border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(task['is_completed'] ? Icons.check_circle : Icons.circle_outlined, color: task['is_completed'] ? Colors.green : Colors.grey, size: 20),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              task['title'] ?? 'Tanpa Judul',
-                                              style: TextStyle(
-                                                fontSize: 14, 
-                                                fontWeight: FontWeight.bold, 
-                                                decoration: task['is_completed'] ? TextDecoration.lineThrough : null, 
-                                                color: task['is_completed'] ? (isDarkMode ? Colors.white38 : Colors.black38) : (isDarkMode ? Colors.white : Colors.black87)
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("Fokus Hari Ini", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+                                  const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                                ],
                               ),
+                              const SizedBox(height: 16),
+                              Expanded(
+                                child: _todayTasks.isEmpty
+                                  ? Center(
+                                      child: Text("Tidak ada agenda tugas hari ini ", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold))
+                                    )
+                                  : RawScrollbar(
+                                      thumbColor: Colors.purple.withOpacity(0.5),
+                                      radius: const Radius.circular(8),
+                                      thickness: 4,
+                                      child: ListView.builder(
+                                        physics: const BouncingScrollPhysics(),
+                                        itemCount: _todayTasks.length,
+                                        itemBuilder: (context, index) {
+                                          final task = _todayTasks[index];
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: isDarkMode ? Colors.blueGrey.shade800 : Colors.white, 
+                                              borderRadius: BorderRadius.circular(16), 
+                                              border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(task['is_completed'] ? Icons.check_circle : Icons.circle_outlined, color: task['is_completed'] ? Colors.green : Colors.grey, size: 20),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    task['title'] ?? 'Tanpa Judul',
+                                                    style: TextStyle(
+                                                      fontSize: 14, 
+                                                      fontWeight: FontWeight.bold, 
+                                                      decoration: task['is_completed'] ? TextDecoration.lineThrough : null, 
+                                                      color: task['is_completed'] ? (isDarkMode ? Colors.white38 : Colors.black38) : (isDarkMode ? Colors.white : Colors.black87)
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                        // Margin tambahan bawah biar gak mentok navigasi
                         const SizedBox(height: 30),
                       ],
                     ),
