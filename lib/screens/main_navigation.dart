@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dashboard/dashboard_page.dart';
+import 'dashboard_page.dart'; // Sesuaikan path jika beda folder
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -11,7 +11,7 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
-  // Placeholder untuk 4 halaman lu (Nanti kita ganti sama file UI aslinya)
+  // Placeholder untuk 4 halaman lu
   final List<Widget> _pages = [
     const DashboardPage(),
     const Center(child: Text("Tampilan Tugas Saya", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
@@ -21,8 +21,11 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    // Deteksi mode gelap/terang dari sistem HP
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white, // Ganti warna dasar aplikasi lu
+      backgroundColor: isDarkMode ? const Color(0xFF0F172A) : Colors.white,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _pages[_selectedIndex],
@@ -37,28 +40,28 @@ class _MainNavigationState extends State<MainNavigation> {
         // MURNI CUMA IKON (Tanpa teks sama sekali)
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         height: 65,
-        backgroundColor: Colors.white,
+        backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
         elevation: 10,
-        indicatorColor: Colors.purple.shade100, // Warna kapsul animasinya
-        destinations: const [
+        indicatorColor: isDarkMode ? Colors.purple.withOpacity(0.3) : Colors.purple.shade100,
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined, color: Colors.grey),
-            selectedIcon: Icon(Icons.dashboard, color: Colors.purple),
-            label: 'Dashboard', // Label wajib ada di kode, tapi gak bakal ditampilin
+            icon: Icon(Icons.dashboard_outlined, color: isDarkMode ? Colors.grey.shade500 : Colors.grey),
+            selectedIcon: const Icon(Icons.dashboard, color: Colors.purple),
+            label: 'Dashboard', 
           ),
           NavigationDestination(
-            icon: Icon(Icons.task_alt_outlined, color: Colors.grey),
-            selectedIcon: Icon(Icons.task_alt, color: Colors.purple),
+            icon: Icon(Icons.task_alt_outlined, color: isDarkMode ? Colors.grey.shade500 : Colors.grey),
+            selectedIcon: const Icon(Icons.task_alt, color: Colors.purple),
             label: 'Tugas',
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined, color: Colors.grey),
-            selectedIcon: Icon(Icons.calendar_month, color: Colors.purple),
+            icon: Icon(Icons.calendar_month_outlined, color: isDarkMode ? Colors.grey.shade500 : Colors.grey),
+            selectedIcon: const Icon(Icons.calendar_month, color: Colors.purple),
             label: 'Kalender',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline, color: Colors.grey),
-            selectedIcon: Icon(Icons.person, color: Colors.purple),
+            icon: Icon(Icons.person_outline, color: isDarkMode ? Colors.grey.shade500 : Colors.grey),
+            selectedIcon: const Icon(Icons.person, color: Colors.purple),
             label: 'Profil',
           ),
         ],

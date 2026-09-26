@@ -28,6 +28,10 @@ jobs:
       - name: Generate Native Folders (Trick for Termux Users)
         run: flutter create .
 
+      - name: Ubah Nama Aplikasi
+        # Ganti "TaskFlow Mobile" dengan nama aplikasi yang lu mau
+        run: sed -i 's/android:label="[^"]*"/android:label="Task Flow"/' android/app/src/main/AndroidManifest.xml
+
       - name: Add Internet Permission for Release
         run: sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
@@ -43,5 +47,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TaskFlow-Release-APK
+          name: TaskFlow-Release-APK # (Opsional) Lu juga bisa ganti nama file APK hasil download-nya di sini
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
