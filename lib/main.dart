@@ -5,9 +5,14 @@ import 'core/config/supabase_config.dart';
 import 'screens/auth/auth_page.dart';
 import 'screens/main_navigation.dart';
 
+// 1. INI PANEL LISTRIK PUSAT KITA (Global State) untuk Tema
+// Default kita set ikutin tema HP (system)
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Inisialisasi Supabase tetep aman di sini
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
@@ -21,14 +26,33 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'TaskFlow',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
-        useMaterial3: true,
-      ),
-      home: const AuthGate(), // Kita ubah jadi gerbang pengecek sesi
+    // 2. ValueListenableBuilder memantau perubahan pada themeNotifier
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, ThemeMode currentMode, __) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'TaskFlow',
+          // Pengaturan tema terang (tetap pakai aksen warna ungu lu)
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.purple,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+          // Pengaturan tema gelap
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.purple,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
+          themeMode: currentMode, // Terapkan tema sesuai saklar
+          home: const AuthGate(), // Gerbang pengecek sesi tetep jalan
+        );
+      },
     );
   }
 }

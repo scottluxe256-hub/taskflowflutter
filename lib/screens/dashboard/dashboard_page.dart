@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import '../../main.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -275,14 +276,15 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
         actions: [
-          // Tombol Ikon Mode Terang/Gelap (Matahari / Bulan)
+                    // Tombol Ikon Mode Terang/Gelap (Matahari / Bulan)
           IconButton(
             icon: Icon(
               isDarkMode ? Icons.nights_stay : Icons.wb_sunny, 
               color: isDarkMode ? Colors.indigo.shade300 : Colors.amber.shade600
             ),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pasang trigger state management ganti tema di sini!')));
+              // SAKLAR AJAIB: Kalau sekarang gelap, ubah ke terang. Kalau terang, ubah ke gelap!
+              themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark;
             },
           ),
           // Foto Profil Tanpa Username
