@@ -28,18 +28,17 @@ jobs:
       - name: Generate Native Folders (Trick for Termux Users)
         run: flutter create .
 
-       - name: Install Dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
       - name: Generate App Icon
-        run: dart run flutter_launcher_icons # Eksekusi perubah ikon sebelum di-build
+        run: dart run flutter_launcher_icons
 
       - name: Build Release APK
-        run: flutter build apk --release --split-per-abi # Biar APK-nya kecil
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-        name: TaskFlow-Release-APK
-          # Path-nya sedikit berubah kalau pakai split-per-abi
-        path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          name: TaskFlow-Release-APK
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
