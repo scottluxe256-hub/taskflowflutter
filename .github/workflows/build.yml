@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  # workflow_dispatch biar lu bisa trigger build manual pakai tombol di web GitHub
   workflow_dispatch: 
 
 jobs:
@@ -25,6 +24,9 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
+      - name: Generate Native Folders (Trick for Termux Users)
+        run: flutter create .
 
       - name: Install Dependencies
         run: flutter pub get
