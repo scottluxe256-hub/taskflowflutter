@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Import config dan halaman Auth
 import 'core/config/supabase_config.dart';
-// import 'screens/auth/auth_page.dart'; // Nanti di-uncomment kalau UI udah jadi
+import 'screens/auth/auth_page.dart';
 
 Future<void> main() async {
+  // Wajib dipanggil sebelum inisialisasi plugin native kayak Supabase
   WidgetsFlutterBinding.ensureInitialized();
 
   // Inisialisasi Supabase (Persis kayak createClient di React)
@@ -23,8 +26,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TaskFlow',
-      theme: ThemeData.dark(), // Pakai tema gelap ala TaskFlow
-      home: const Scaffold(body: Center(child: Text("Supabase Ready!"))), // Nanti diganti jadi AuthPage
+      theme: ThemeData(
+        // Biar aksen warna aplikasinya otomatis senada sama warna ungu TaskFlow lu
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+        useMaterial3: true,
+      ),
+      // Langsung arahin ke bosnya halaman login
+      home: const AuthPage(), 
     );
   }
 }
