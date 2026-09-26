@@ -7,7 +7,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:task_flow/main.dart'; 
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final VoidCallback onNavigateToTasks; // <-- TAMBAHAN CALLBACK
+
+  const DashboardPage({super.key, required this.onNavigateToTasks});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -151,7 +153,6 @@ class _DashboardPageState extends State<DashboardPage> {
             _todayTasksCount = today.length;
             _todayTasks = today;
           });
-          // Update Notifier biar kesinkron!
           profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
         }
       }
@@ -501,7 +502,14 @@ class _DashboardPageState extends State<DashboardPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text("Fokus Hari Ini", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)), 
+                                
+                                // <-- INI DIA TOMBOL LIHAT SEMUA YANG SUDAH HIDUP -->
+                                GestureDetector(
+                                  onTap: widget.onNavigateToTasks,
+                                  child: const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                                ),
+                                // <------------------------------------------------>
+                                
                               ],
                             ),
                             const SizedBox(height: 16),

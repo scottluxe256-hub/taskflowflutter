@@ -34,7 +34,7 @@ class CloudinaryHelper {
   }
 
   // 2. Fungsi Optimasi AI & Crop (Persis kayak di React)
-  static String getOptimizedImageUrl(String url, {String format = "f_avif"}) {
+  static String getOptimizedImageUrl(String url, {String format = "f_webp"}) {
     if (url.isEmpty) return "";
     
     // c_thumb, g_auto (AI pencari wajah), ubah ke 400x400

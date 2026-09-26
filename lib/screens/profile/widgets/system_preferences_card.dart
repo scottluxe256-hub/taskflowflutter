@@ -128,18 +128,21 @@ class _SystemPreferencesCardState extends State<SystemPreferencesCard> {
             ],
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: onTap,
-          icon: Icon(icon, size: 12, color: onTap == null ? Colors.grey : (isDark ? Colors.white : Colors.black87)),
-          label: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onTap == null ? Colors.grey : (isDark ? Colors.white : Colors.black87))),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade100,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            // PERBAIKAN: borderSide diganti jadi side
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12), 
-              side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)
+        // UKURAN DIBIKIN FIX 140 BIAR SIMETRIS
+        SizedBox(
+          width: 140,
+          child: ElevatedButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 12, color: onTap == null ? Colors.grey : (isDark ? Colors.white : Colors.black87)),
+            label: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onTap == null ? Colors.grey : (isDark ? Colors.white : Colors.black87))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade100,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12), 
+                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)
+              ),
             ),
           ),
         )

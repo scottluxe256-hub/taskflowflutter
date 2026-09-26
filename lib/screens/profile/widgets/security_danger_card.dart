@@ -145,20 +145,22 @@ class _SecurityDangerCardState extends State<SecurityDangerCard> {
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? color.withOpacity(0.2) : color.withOpacity(0.1), 
-              elevation: 0, 
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
-              // PERBAIKAN: borderSide ganti ke side
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12), 
-                side: BorderSide(color: color.withOpacity(0.3))
-              )
+          // UKURAN DIBIKIN FIX 140 BIAR SIMETRIS
+          SizedBox(
+            width: 140,
+            child: ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? color.withOpacity(0.2) : color.withOpacity(0.1), 
+                elevation: 0, 
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12), 
+                  side: BorderSide(color: color.withOpacity(0.3))
+                )
+              ),
+              child: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
             ),
-            // PERBAIKAN: Hapus shade200/shade700 karena tipe data 'color' biasa gak support itu
-            child: Text(btnText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
           )
         ],
       ),
