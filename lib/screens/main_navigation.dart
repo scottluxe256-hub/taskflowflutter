@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import './dashboard/dashboard_page.dart';
 import './tasks/tasks_page.dart';
 import './calendar/calendar_page.dart';
-import './profile/profile_page.dart'; // INI YANG KETINGGALAN BOS!
+import './profile/profile_page.dart'; 
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -14,14 +14,21 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
+  // Hapus kata 'const' di array ini karena sekarang ada fungsi anonim yang dinamis
   late final List<Widget> _pages = [
-    const DashboardPage(),
+    // PERBAIKAN DI SINI: Masukkan onNavigateToTasks ke DashboardPage
+    DashboardPage(
+      onNavigateToTasks: () {
+        setState(() {
+          _selectedIndex = 1; // Pindah ke tab Tugas (index 1)
+        });
+      },
+    ),
     const TasksPage(),
     CalendarPage(
       onNavigateToTasks: () {
-        // Fungsi ini kepanggil kalau user mencet tombol "Tugas Baru" di Kalender
         setState(() {
-          _selectedIndex = 1; // 1 = Index halaman TasksPage (Daftar Tugas)
+          _selectedIndex = 1; 
         });
       },
     ),
@@ -30,7 +37,6 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    // Deteksi mode gelap/terang dari sistem HP
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -46,7 +52,6 @@ class _MainNavigationState extends State<MainNavigation> {
             _selectedIndex = index;
           });
         },
-        // MURNI CUMA IKON (Tanpa teks sama sekali)
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         height: 65,
         backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
