@@ -29,14 +29,41 @@ class _ProfilePageState extends State<ProfilePage> {
     'badge': 'Initiator', 'stats': {'totalXP': '0 XP', 'profession': 'Pelajar', 'joinedDate': '-'}
   };
 
+  RealtimeChannel? _profileChannel; // <-- KABEL REAL-TIME BARU
+
   @override
   void initState() {
     super.initState();
     _fetchProfileData();
+
+    // <-- PASANG LISTENER REAL-TIME KE TABEL PROFILES -->
+    _profileChannel = Supabase.instance.client
+        .channel('public:profiles_view')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'profiles',
+            callback: (payload) {
+              // Kalau ada update dari Web, tarik data terbaru otomatis
+              _fetchProfileData();
+            })
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_profileChannel != null) {
+      Supabase.instance.client.removeChannel(_profileChannel!);
+    }
+    super.dispose();
   }
 
   Future<void> _fetchProfileData() async {
-    setState(() => _isLoading = true);
+    // Jangan set _isLoading = true terus kalau datanya udah ada biar layarnya gak kedip
+    if (_userData['name'] == 'Loading...') {
+      setState(() => _isLoading = true);
+    }
+    
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
@@ -58,27 +85,29 @@ class _ProfilePageState extends State<ProfilePage> {
       String avatar = profileRes?['avatar_url'] ?? meta?['avatar_url'] ?? meta?['picture'] ?? "";
       if (avatar.trim().isEmpty) avatar = defaultAvatar;
 
-      setState(() {
-        _userData = {
-          'name': displayName, 
-          'username': profileRes?['username'] ?? "", 
-          'email': user.email ?? "", 
-          'bio': profileRes?['bio'] ?? "", 
-          'avatarUrl': avatar,
-          'badge': badgeName, 
-          'stats': {
-            'totalXP': '${xp.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} XP', 
-            'profession': profileRes?['profession'] ?? "Pelajar", 
-            'joinedDate': joinDate
-          }
-        };
-      });
-      profileNotifier.value = {'name': displayName, 'avatar': avatar};
+      if (mounted) {
+        setState(() {
+          _userData = {
+            'name': displayName, 
+            'username': profileRes?['username'] ?? "", 
+            'email': user.email ?? "", 
+            'bio': profileRes?['bio'] ?? "", 
+            'avatarUrl': avatar,
+            'badge': badgeName, 
+            'stats': {
+              'totalXP': '${xp.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} XP', 
+              'profession': profileRes?['profession'] ?? "Pelajar", 
+              'joinedDate': joinDate
+            }
+          };
+          _isLoading = false;
+        });
+        profileNotifier.value = {'name': displayName, 'avatar': avatar};
+      }
     } catch (e) {
       debugPrint("Error: $e");
-    } finally {
       if (mounted) setState(() => _isLoading = false);
-    }
+    } 
   }
 
   Future<void> _handleAutoUploadImage(File file) async {
@@ -126,13 +155,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Stack(
       children: [
-        // BACKGROUND STATIS (Tidak terpengaruh keyboard)
         Container(
           decoration: BoxDecoration(
             image: DecorationImage(image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), fit: BoxFit.cover),
           ),
         ),
-        // SCAFFOLD UTAMA
         Scaffold(
           backgroundColor: Colors.transparent, 
           extendBodyBehindAppBar: true,
@@ -147,6 +174,27 @@ class _ProfilePageState extends State<ProfilePage> {
                   const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)),
                   const SizedBox(width: 8),
                   Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
+                  const SizedBox(width: 8),
+                  
+                  // <-- TOMBOL REFRESH BARU DI PROFIL -->
+                  GestureDetector(
+                    onTap: _fetchProfileData,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.purpleAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.refresh, size: 14, color: Colors.purpleAccent),
+                          SizedBox(width: 4),
+                          Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -170,7 +218,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           body: SafeArea(
-            child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)) : RefreshIndicator(
+            child: _isLoading 
+            ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)) 
+            : RefreshIndicator(
               onRefresh: _fetchProfileData, color: Colors.purpleAccent,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20),
