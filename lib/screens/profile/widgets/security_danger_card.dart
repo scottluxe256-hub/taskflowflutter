@@ -94,6 +94,10 @@ class _SecurityDangerCardState extends State<SecurityDangerCard> {
           if (_showChangePass) _buildOtpForm(isDark),
           const SizedBox(height: 16),
           _buildActionRow("Hapus Akun", "Hapus akun secara permanen", Icons.delete_forever, "Hapus Akun", Colors.redAccent, isDark, _handleDeleteAccount),
+          
+          const SizedBox(height: 16),
+          // TOMBOL LOG OUT BARU
+          _buildActionRow("Log Out", "Keluar dari sesi saat ini", Icons.logout, "Log Out", Colors.orange, isDark, widget.onLogout),
         ],
       ),
     );

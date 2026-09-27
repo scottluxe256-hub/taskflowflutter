@@ -29,6 +29,7 @@ class _CalendarPageState extends State<CalendarPage> {
   int _activeYear = DateTime.now().year;
 
   RealtimeChannel? _taskChannel;
+  RealtimeChannel? _profileChannel;
 
   @override
   void initState() {
@@ -36,23 +37,23 @@ class _CalendarPageState extends State<CalendarPage> {
     _fetchData();
     _fetchHolidays(_activeYear);
 
+    // KABEL REAL-TIME SPESIFIK CALENDAR (Tugas)
     _taskChannel = Supabase.instance.client
-        .channel('public:calendar_view')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'tasks',
-            callback: (payload) {
-              _fetchData();
-            })
+        .channel('calendar_tasks_sync')
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'tasks', callback: (payload) => _fetchData())
+        .subscribe();
+        
+    // KABEL REAL-TIME SPESIFIK CALENDAR (Profil)
+    _profileChannel = Supabase.instance.client
+        .channel('calendar_profiles_sync')
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'profiles', callback: (payload) => _fetchData())
         .subscribe();
   }
 
   @override
   void dispose() {
-    if (_taskChannel != null) {
-      Supabase.instance.client.removeChannel(_taskChannel!);
-    }
+    if (_taskChannel != null) Supabase.instance.client.removeChannel(_taskChannel!);
+    if (_profileChannel != null) Supabase.instance.client.removeChannel(_profileChannel!);
     super.dispose();
   }
 
@@ -78,7 +79,6 @@ class _CalendarPageState extends State<CalendarPage> {
           
       if (mounted) {
         setState(() { _allTasks = response; _isLoading = false; });
-        // Update Notifier
         profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
       }
     } catch (e) {
@@ -107,6 +107,12 @@ class _CalendarPageState extends State<CalendarPage> {
     String hex = colorStr.replaceAll('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
+  }
+  
+  // Fungsi Cepat Ubah Status Tugas dari Calendar
+  Future<void> _toggleTaskDone(String id, bool currentStatus) async {
+    final newStatus = !currentStatus;
+    await Supabase.instance.client.from('tasks').update({'is_completed': newStatus}).eq('id', id);
   }
 
   List<dynamic> get _tasksForSelectedDate {
@@ -145,18 +151,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.purpleAccent.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.refresh, size: 14, color: Colors.purpleAccent),
-                      SizedBox(width: 4),
-                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                    ],
-                  ),
+                  decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))),
+                  child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))]),
                 ),
               ),
             ],
@@ -340,7 +336,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                       isDarkMode: isDarkMode, 
                                       catName: catName, 
                                       catColor: _getCategoryColor(catColorStr, catName),
-                                      onToggle: (id, status) {}, 
+                                      onToggle: _toggleTaskDone, 
                                       showActions: false, 
                                     );
                                   },

@@ -8,7 +8,7 @@ class TaskItemCard extends StatelessWidget {
   final Function(String, bool) onToggle;
   final Function(dynamic)? onEdit;
   final Function(String)? onDelete;
-  final bool showActions; // Kunci untuk menyembunyikan aksi di Kalender
+  final bool showActions; 
 
   const TaskItemCard({
     super.key,
@@ -19,7 +19,7 @@ class TaskItemCard extends StatelessWidget {
     required this.onToggle,
     this.onEdit,
     this.onDelete,
-    this.showActions = true, // Defaultnya true (muncul di halaman Tasks)
+    this.showActions = true, 
   });
 
   @override
@@ -78,14 +78,23 @@ class TaskItemCard extends StatelessWidget {
               ],
             ),
           ),
+          
+          // <-- KATEGORI SUDAH DIKUNCI LEBARNYA BIAR SIMETRIS (85px) -->
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            width: 85,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: catColor.withOpacity(0.15), 
               borderRadius: BorderRadius.circular(8), 
               border: Border.all(color: catColor.withOpacity(0.3))
             ),
-            child: Text(catName.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: catColor)),
+            child: Text(
+              catName.toUpperCase(), 
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: catColor)
+            ),
           ),
           
           // JIKA SHOW ACTIONS TRUE, MUNCULKAN TOMBOL EDIT & HAPUS

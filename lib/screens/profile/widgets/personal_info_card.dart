@@ -25,16 +25,29 @@ class _PersonalInfoCardState extends State<PersonalInfoCard> {
     _bioCtrl = TextEditingController(text: widget.user['bio'] ?? '');
   }
 
+  // <-- LOGIKA DETEKSI PERUBAHAN LEBIH PEKA AGAR REAL-TIME JALAN -->
   @override
   void didUpdateWidget(covariant PersonalInfoCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.user != widget.user) {
-      if (!widget.isSaving) {
+    if (!widget.isSaving) {
+      if (oldWidget.user['name'] != widget.user['name']) {
         _nameCtrl.text = widget.user['name'] ?? '';
+      }
+      if (oldWidget.user['username'] != widget.user['username']) {
         _usernameCtrl.text = widget.user['username'] ?? '';
+      }
+      if (oldWidget.user['bio'] != widget.user['bio']) {
         _bioCtrl.text = widget.user['bio'] ?? '';
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _usernameCtrl.dispose();
+    _bioCtrl.dispose();
+    super.dispose();
   }
 
   @override

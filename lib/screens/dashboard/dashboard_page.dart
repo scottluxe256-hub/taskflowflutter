@@ -5,9 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:task_flow/main.dart'; 
+import '../tasks/widgets/task_item.dart'; 
 
 class DashboardPage extends StatefulWidget {
-  final VoidCallback onNavigateToTasks; // <-- TAMBAHAN CALLBACK
+  final VoidCallback onNavigateToTasks;
 
   const DashboardPage({super.key, required this.onNavigateToTasks});
 
@@ -33,6 +34,7 @@ class _DashboardPageState extends State<DashboardPage> {
   DateTime _currentTime = DateTime.now();
   
   RealtimeChannel? _taskChannel;
+  RealtimeChannel? _profileChannel; 
 
   @override
   void initState() {
@@ -44,24 +46,24 @@ class _DashboardPageState extends State<DashboardPage> {
       if (mounted) setState(() => _currentTime = DateTime.now());
     });
 
+    // KABEL REAL-TIME SPESIFIK DASHBOARD (Tugas)
     _taskChannel = Supabase.instance.client
-        .channel('public:tasks')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'tasks',
-            callback: (payload) {
-              _fetchDashboardData();
-            })
+        .channel('dashboard_tasks_sync')
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'tasks', callback: (payload) => _fetchDashboardData())
+        .subscribe();
+
+    // KABEL REAL-TIME SPESIFIK DASHBOARD (Profil)
+    _profileChannel = Supabase.instance.client
+        .channel('dashboard_profiles_sync')
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'profiles', callback: (payload) => _fetchDashboardData())
         .subscribe();
   }
 
   @override
   void dispose() {
     _timer.cancel();
-    if (_taskChannel != null) {
-      Supabase.instance.client.removeChannel(_taskChannel!);
-    }
+    if (_taskChannel != null) Supabase.instance.client.removeChannel(_taskChannel!);
+    if (_profileChannel != null) Supabase.instance.client.removeChannel(_profileChannel!);
     super.dispose();
   }
 
@@ -71,9 +73,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (weatherRes.statusCode == 200) {
         final weatherData = json.decode(weatherRes.body);
         if (weatherData['current_weather'] != null && mounted) {
-          setState(() {
-             _weatherTemp = "${weatherData['current_weather']['temperature'].round()}\u00B0C";
-          });
+          setState(() => _weatherTemp = "${weatherData['current_weather']['temperature'].round()}\u00B0C");
         }
       }
       
@@ -81,9 +81,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (geoRes.statusCode == 200) {
         final geoData = json.decode(geoRes.body);
         if (mounted) {
-          setState(() {
-             _weatherLocation = geoData['locality'] ?? geoData['city'] ?? geoData['principalSubdivision'] ?? "Sumedang";
-          });
+          setState(() => _weatherLocation = geoData['locality'] ?? geoData['city'] ?? geoData['principalSubdivision'] ?? "Sumedang");
         }
       }
     } catch (e) {
@@ -94,23 +92,17 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _initLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _fetchWeatherAndLocation(); 
-        return;
-      }
+      if (!serviceEnabled) { _fetchWeatherAndLocation(); return; }
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-          _fetchWeatherAndLocation(); 
-          return;
+          _fetchWeatherAndLocation(); return;
         }
       }
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
       _fetchWeatherAndLocation(position.latitude, position.longitude);
-    } catch (e) {
-      _fetchWeatherAndLocation(); 
-    }
+    } catch (e) { _fetchWeatherAndLocation(); }
   }
 
   Future<void> _fetchDashboardData() async {
@@ -121,9 +113,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (user != null) {
         try {
           final profileRes = await Supabase.instance.client.from('profiles').select('*').eq('id', user.id).maybeSingle();
-          if (profileRes != null && mounted) {
-             _avatarUrl = profileRes['avatar_url'] ?? "";
-          }
+          if (profileRes != null && mounted) _avatarUrl = profileRes['avatar_url'] ?? "";
         } catch (_) {}
 
         final metadata = user.userMetadata;
@@ -131,12 +121,11 @@ class _DashboardPageState extends State<DashboardPage> {
         
         final response = await Supabase.instance.client
             .from('tasks')
-            .select('*')
+            .select('*, categories(name, color)') 
             .eq('user_id', user.id)
             .order('created_at', ascending: false);
             
         final tasks = response as List<dynamic>;
-        
         final todayStr = "${_currentTime.year}-${_currentTime.month.toString().padLeft(2, '0')}-${_currentTime.day.toString().padLeft(2, '0')}";
         
         final visibleTasks = tasks.where((t) => t['is_hidden'] != true).toList();
@@ -163,23 +152,26 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Color _getCategoryColor(String? colorStr, String? name) {
+    if (colorStr == null || colorStr.isEmpty) return Colors.purpleAccent;
+    String hex = colorStr.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
+  }
+
+  Future<void> _toggleTaskDone(String id, bool currentStatus) async {
+    final newStatus = !currentStatus;
+    await Supabase.instance.client.from('tasks').update({'is_completed': newStatus}).eq('id', id);
+  }
+
   Widget _buildWeatherIcon(bool isDaytime) {
     return SizedBox(
-      width: 26,
-      height: 26,
+      width: 26, height: 26,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Icon(Icons.cloud, color: isDaytime ? Colors.grey.shade400 : Colors.grey.shade600, size: 24),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Icon(
-              isDaytime ? Icons.wb_sunny : Icons.dark_mode,
-              color: isDaytime ? Colors.amber : Colors.indigo.shade300,
-              size: 14,
-            ),
-          ),
+          Positioned(top: 0, right: 0, child: Icon(isDaytime ? Icons.wb_sunny : Icons.dark_mode, color: isDaytime ? Colors.amber : Colors.indigo.shade300, size: 14)),
         ],
       ),
     );
@@ -222,13 +214,8 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           Container(
-            width: 44, 
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.purpleAccent.withOpacity(0.15),
-              border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))
-            ),
+            width: 44, height: 44,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.purpleAccent.withOpacity(0.15), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))),
             child: const Icon(Icons.layers, color: Colors.purpleAccent, size: 22), 
           )
         ],
@@ -273,24 +260,12 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           SizedBox(
-            width: 44,
-            height: 44,
+            width: 44, height: 44,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 8, 
-                  backgroundColor: color.withOpacity(0.15),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  strokeCap: StrokeCap.round, 
-                ),
-                Center(
-                  child: Text(
-                    "${(progress * 100).toInt()}%",
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
-                  ),
-                ),
+                CircularProgressIndicator(value: progress, strokeWidth: 8, backgroundColor: color.withOpacity(0.15), valueColor: AlwaysStoppedAnimation<Color>(color), strokeCap: StrokeCap.round),
+                Center(child: Text("${(progress * 100).toInt()}%", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color))),
               ],
             ),
           )
@@ -313,8 +288,7 @@ class _DashboardPageState extends State<DashboardPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85),
-        elevation: 0,
-        titleSpacing: 16,
+        elevation: 0, titleSpacing: 16,
         title: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -325,24 +299,11 @@ class _DashboardPageState extends State<DashboardPage> {
               Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () {
-                  _fetchDashboardData();
-                  _initLocation(); 
-                },
+                onTap: () { _fetchDashboardData(); _initLocation(); },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.purpleAccent.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.purpleAccent.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.refresh, size: 14, color: Colors.purpleAccent),
-                      SizedBox(width: 4),
-                      Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                    ],
-                  ),
+                  decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))),
+                  child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))]),
                 ),
               ),
             ],
@@ -350,13 +311,8 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              isDarkMode ? Icons.dark_mode : Icons.wb_sunny, 
-              color: isDarkMode ? Colors.indigo.shade300 : Colors.amber.shade600
-            ),
-            onPressed: () {
-              themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark;
-            },
+            icon: Icon(isDarkMode ? Icons.dark_mode : Icons.wb_sunny, color: isDarkMode ? Colors.indigo.shade300 : Colors.amber.shade600),
+            onPressed: () { themeNotifier.value = isDarkMode ? ThemeMode.light : ThemeMode.dark; },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
@@ -366,12 +322,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 final avatar = profile['avatar'] ?? '';
                 final name = profile['name'] ?? 'U';
                 return CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.purpleAccent.withOpacity(0.2),
-                  backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
-                  child: avatar.isEmpty 
-                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) 
-                      : null,
+                  radius: 16, backgroundColor: Colors.purpleAccent.withOpacity(0.2), backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent, fontSize: 14)) : null,
                 );
               },
             ),
@@ -379,20 +331,13 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'),
-            fit: BoxFit.cover,
-          ),
-        ),
+        width: double.infinity, height: double.infinity,
+        decoration: BoxDecoration(image: DecorationImage(image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), fit: BoxFit.cover)),
         child: SafeArea(
           child: _isLoading 
             ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent))
             : RefreshIndicator(
-                onRefresh: _fetchDashboardData,
-                color: Colors.purpleAccent,
+                onRefresh: _fetchDashboardData, color: Colors.purpleAccent,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
@@ -405,32 +350,18 @@ class _DashboardPageState extends State<DashboardPage> {
                             ValueListenableBuilder<Map<String, String>>(
                               valueListenable: profileNotifier,
                               builder: (context, profile, child) {
-                                return Text(
-                                  "Selamat Datang, ${profile['name']}! \u{1F44B}", 
-                                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87),
-                                  maxLines: 1, 
-                                  overflow: TextOverflow.ellipsis,
-                                );
+                                return Text("Selamat Datang, ${profile['name']}! \u{1F44B}", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis);
                               }
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              "Berikut agenda tugasmu hari ini.", 
-                              style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)
-                            ),
+                            Text("Berikut agenda tugasmu hari ini.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
                             const SizedBox(height: 16),
-                            
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                                    borderRadius: BorderRadius.circular(16), 
-                                    border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-                                  ),
+                                  decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
                                   child: Row(
                                     children: [
                                       _buildWeatherIcon(isDaytime),
@@ -439,10 +370,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(_weatherTemp, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                          SizedBox(
-                                            width: 80,
-                                            child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
-                                          ),
+                                          SizedBox(width: 80, child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54))),
                                         ],
                                       ),
                                     ],
@@ -450,28 +378,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                                    borderRadius: BorderRadius.circular(16), 
-                                    border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-                                  ),
-                                  child: Text(
-                                    timeString, 
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purpleAccent.shade100 : Colors.purpleAccent, letterSpacing: 1, fontFamily: 'monospace') 
-                                  ),
+                                  decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
+                                  child: Text(timeString, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purpleAccent.shade100 : Colors.purpleAccent, letterSpacing: 1, fontFamily: 'monospace')),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 24),
-                            
                             GridView.count(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 2.1, 
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 2.1, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                               children: [
                                 _buildAllTasksCard("Semua Tugas", _totalTasks, isDarkMode),
                                 _buildDonutCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
@@ -485,73 +399,42 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                     
                     SliverFillRemaining(
-                      hasScrollBody: true, 
-                      fillOverscroll: true,
+                      hasScrollBody: true, fillOverscroll: true,
                       child: Container(
-                        margin: const EdgeInsets.fromLTRB(20, 24, 20, 24), 
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                          borderRadius: BorderRadius.circular(20), 
-                          border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-                        ),
+                        margin: const EdgeInsets.fromLTRB(20, 24, 20, 24), padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
                         child: Column(
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text("Fokus Hari Ini", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                
-                                // <-- INI DIA TOMBOL LIHAT SEMUA YANG SUDAH HIDUP -->
-                                GestureDetector(
-                                  onTap: widget.onNavigateToTasks,
-                                  child: const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                                ),
-                                // <------------------------------------------------>
-                                
+                                GestureDetector(onTap: widget.onNavigateToTasks, child: const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))),
                               ],
                             ),
                             const SizedBox(height: 16),
                             Expanded(
                               child: _todayTasks.isEmpty
-                                ? Center(
-                                    child: Text("Tidak ada agenda tugas hari ini ☕", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold))
-                                  )
+                                ? Center(child: Text("Tidak ada agenda tugas hari ini ☕", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold)))
                                 : RawScrollbar(
-                                    thumbColor: Colors.purpleAccent.withOpacity(0.5), 
-                                    radius: const Radius.circular(8),
-                                    thickness: 4,
+                                    thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
                                     child: ListView.builder(
                                       physics: const BouncingScrollPhysics(),
                                       itemCount: _todayTasks.length,
                                       itemBuilder: (context, index) {
                                         final task = _todayTasks[index];
-                                        return Container(
-                                          margin: const EdgeInsets.only(bottom: 10),
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: isDarkMode ? Colors.blueGrey.shade800 : Colors.white, 
-                                            borderRadius: BorderRadius.circular(16), 
-                                            border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(task['is_completed'] ? Icons.check_circle : Icons.circle_outlined, color: task['is_completed'] ? Colors.green : Colors.grey, size: 20),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  task['title'] ?? 'Tanpa Judul',
-                                                  style: TextStyle(
-                                                    fontSize: 14, 
-                                                    fontWeight: FontWeight.bold, 
-                                                    decoration: task['is_completed'] ? TextDecoration.lineThrough : null, 
-                                                    color: task['is_completed'] ? (isDarkMode ? Colors.white38 : Colors.black38) : (isDarkMode ? Colors.white : Colors.black87)
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                        
+                                        final catData = task['categories'];
+                                        String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
+                                        String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
+                                        
+                                        return TaskItemCard(
+                                          task: task, 
+                                          isDarkMode: isDarkMode, 
+                                          catName: catName, 
+                                          catColor: _getCategoryColor(catColorStr, catName),
+                                          onToggle: _toggleTaskDone, 
+                                          showActions: false, 
                                         );
                                       },
                                     ),
