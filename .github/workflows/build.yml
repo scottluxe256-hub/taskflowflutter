@@ -1,0 +1,64 @@
+name: Build & Sign TaskFlow APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Generate Native Folders
+        run: flutter create .
+
+      - name: Ubah Nama & Izin Aplikasi
+        run: |
+          sed -i 's/android:label="[^"]*"/android:label="Task Flow"/' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+      - name: Install Dependencies & Clean Cache
+        run: |
+          flutter clean
+          flutter pub get
+
+      - name: Generate App Icon
+        run: dart run flutter_launcher_icons
+
+      - name: Build Release APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Sign APK (Tanda Tangan Permanen)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          # 1. Ubah teks rahasia kembali menjadi file .jks
+          echo "$KEYSTORE_BASE64" | base64 -d > taskflow.jks
+          
+          # 2. Cari alat penanda tangan (apksigner) bawaan mesin Android
+          APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name "apksigner" -type f | sort -r | head -n 1)
+          
+          # 3. Cap APK menggunakan gembok permanen
+          $APKSIGNER sign --ks taskflow.jks --ks-key-alias taskflow --ks-pass pass:taskflow123 --key-pass pass:taskflow123 build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+
+      - name: Upload APK Hasil Akhir
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskFlow-Official-APK 
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
