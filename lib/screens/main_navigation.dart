@@ -14,24 +14,25 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
-  // Fungsi praktis buat pindah tab
+  // Fungsi dinamis untuk berpindah tab tanpa menumpuk layar baru
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
+  // Daftarkan semua halaman beserta jalur navigasinya
   late final List<Widget> _pages = [
     DashboardPage(
-      onNavigateToTasks: () => _onItemTapped(1),
-      onNavigateToProfile: () => _onItemTapped(3),
+      onNavigateToTasks: () => _onItemTapped(1),    // Arahkan ke Tab Tugas
+      onNavigateToProfile: () => _onItemTapped(3),  // Arahkan ke Tab Profil
     ),
     TasksPage(
-      onNavigateToProfile: () => _onItemTapped(3),
+      onNavigateToProfile: () => _onItemTapped(3),  // Arahkan ke Tab Profil
     ),
     CalendarPage(
-      onNavigateToTasks: () => _onItemTapped(1),
-      onNavigateToProfile: () => _onItemTapped(3),
+      onNavigateToTasks: () => _onItemTapped(1),    // Arahkan ke Tab Tugas
+      onNavigateToProfile: () => _onItemTapped(3),  // Arahkan ke Tab Profil
     ),
     const ProfilePage(),
   ];
