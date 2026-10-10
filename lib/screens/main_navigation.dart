@@ -14,23 +14,24 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
-  // Hapus kata 'const' di array ini karena sekarang ada fungsi anonim yang dinamis
+  // Fungsi praktis buat pindah tab
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   late final List<Widget> _pages = [
-    // PERBAIKAN DI SINI: Masukkan onNavigateToTasks ke DashboardPage
     DashboardPage(
-      onNavigateToTasks: () {
-        setState(() {
-          _selectedIndex = 1; // Pindah ke tab Tugas (index 1)
-        });
-      },
+      onNavigateToTasks: () => _onItemTapped(1),
+      onNavigateToProfile: () => _onItemTapped(3),
     ),
-    const TasksPage(),
+    TasksPage(
+      onNavigateToProfile: () => _onItemTapped(3),
+    ),
     CalendarPage(
-      onNavigateToTasks: () {
-        setState(() {
-          _selectedIndex = 1; 
-        });
-      },
+      onNavigateToTasks: () => _onItemTapped(1),
+      onNavigateToProfile: () => _onItemTapped(3),
     ),
     const ProfilePage(),
   ];
@@ -47,11 +48,7 @@ class _MainNavigationState extends State<MainNavigation> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onDestinationSelected: _onItemTapped,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         height: 65,
         backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,

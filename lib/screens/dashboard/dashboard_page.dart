@@ -12,8 +12,9 @@ import '../profile/profile_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final VoidCallback onNavigateToTasks;
+  final VoidCallback onNavigateToProfile;
 
-  const DashboardPage({super.key, required this.onNavigateToTasks});
+  const DashboardPage({super.key, required this.onNavigateToTasks, required this.onNavigateToProfile});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -30,7 +31,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int _pendingTasks = 0;
   
   String _weatherTemp = "--°C"; 
-  String _weatherLocation = "Memuat lokasi...";
+  String _weatherLocation = "memuat..."; // Teks loading sesuai instruksi
   
   List<dynamic> _allTasks = [];
   List<dynamic> _todayTasks = [];
@@ -52,20 +53,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
     _taskChannel = Supabase.instance.client
         .channel('dashboard_tasks_sync')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all, 
-            schema: 'public', 
-            table: 'tasks', 
-            callback: (payload) => _fetchDashboardData())
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'tasks', callback: (payload) => _fetchDashboardData())
         .subscribe();
         
     _profileChannel = Supabase.instance.client
         .channel('dashboard_profiles_sync')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all, 
-            schema: 'public', 
-            table: 'profiles', 
-            callback: (payload) => _fetchDashboardData())
+        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'profiles', callback: (payload) => _fetchDashboardData())
         .subscribe();
   }
 
@@ -77,6 +70,7 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
+  // MENGAMBIL LOKASI PRESISI (VILLAGE/TOWN) VIA NOMINATIM OPENSTREETMAP
   Future<void> _fetchWeatherAndLocation([double lat = -6.8580, double lon = 107.9271]) async {
     try {
       final weatherRes = await http.get(Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true'));
@@ -84,12 +78,19 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() => _weatherTemp = "${json.decode(weatherRes.body)['current_weather']['temperature'].round()}°C");
       }
       
-      final geoRes = await http.get(Uri.parse('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lon&localityLanguage=id'));
+      final geoRes = await http.get(
+        Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon&zoom=14&addressdetails=1'),
+        headers: {'User-Agent': 'TaskFlowApp/1.0'} // Wajib pakai User-Agent di Nominatim
+      );
       if (geoRes.statusCode == 200 && mounted) {
-        setState(() => _weatherLocation = json.decode(geoRes.body)['locality'] ?? json.decode(geoRes.body)['city'] ?? json.decode(geoRes.body)['principalSubdivision'] ?? "Lokasi Anda");
+        final address = json.decode(geoRes.body)['address'];
+        // Mengutamakan desa/kecamatan (seperti Ganeas), lalu kota, kabupaten, provinsi
+        final preciseLocation = address['village'] ?? address['suburb'] ?? address['town'] ?? address['city_district'] ?? address['city'] ?? address['county'] ?? "Lokasi Anda";
+        setState(() => _weatherLocation = preciseLocation);
       }
     } catch (e) { 
       debugPrint("Error cuaca: $e"); 
+      if (mounted) setState(() => _weatherLocation = "Gagal memuat");
     }
   }
 
@@ -107,7 +108,8 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
       
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      // Pakai akurasi tinggi
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
       _fetchWeatherAndLocation(position.latitude, position.longitude);
     } catch (e) { 
       _fetchWeatherAndLocation(); 
@@ -136,7 +138,7 @@ class _DashboardPageState extends State<DashboardPage> {
         final visibleTasks = tasks.where((t) => t['is_hidden'] != true).toList();
         final completed = visibleTasks.where((t) => t['is_completed'] == true).toList();
         final pending = visibleTasks.where((t) => t['is_completed'] != true).toList();
-        final today = visibleTasks.where((t) => t['due_date'] != null && t['due_date'].toString().startsWith(todayStr)).toList();
+        final today = visibleTasks.where((t) => t['due_date'] != null && DateTime.parse(t['due_date'].toString()).toLocal().toIso8601String().startsWith(todayStr)).toList();
 
         if (mounted) {
           setState(() {
@@ -261,44 +263,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildAllTasksCard(String title, int count, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-        borderRadius: BorderRadius.circular(20), 
-        border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-      ),
+      decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.layers, size: 24, color: Colors.purpleAccent), 
-                    const SizedBox(width: 6), 
-                    Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54)))
-                  ]
-                ), 
-                const Spacer(), 
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline, 
-                  textBaseline: TextBaseline.alphabetic, 
-                  children: [
-                    Text(count.toString(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), 
-                    const SizedBox(width: 4), 
-                    Text("Tugas", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black38))
-                  ]
-                )
-              ]
-            )
-          ),
-          Container(
-            width: 44, height: 44, 
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.purpleAccent.withOpacity(0.15), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), 
-            child: const Icon(Icons.layers, color: Colors.purpleAccent, size: 22)
-          )
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Icon(Icons.layers, size: 24, color: Colors.purpleAccent), const SizedBox(width: 6), Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54)))]), const Spacer(), Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [Text(count.toString(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), const SizedBox(width: 4), Text("Tugas", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black38))])])),
+          Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.purpleAccent.withOpacity(0.15), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), child: const Icon(Icons.layers, color: Colors.purpleAccent, size: 22))
         ],
       ),
     );
@@ -307,49 +277,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildDonutCard(String title, int count, IconData icon, Color color, double progress, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-        borderRadius: BorderRadius.circular(20), 
-        border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-      ),
+      decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, size: 24, color: color), 
-                    const SizedBox(width: 6), 
-                    Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54)))
-                  ]
-                ), 
-                const Spacer(), 
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline, 
-                  textBaseline: TextBaseline.alphabetic, 
-                  children: [
-                    Text(count.toString(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), 
-                    const SizedBox(width: 4), 
-                    Text("Tugas", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black38))
-                  ]
-                )
-              ]
-            )
-          ),
-          SizedBox(
-            width: 44, height: 44, 
-            child: Stack(
-              fit: StackFit.expand, 
-              children: [
-                CircularProgressIndicator(value: progress, strokeWidth: 8, backgroundColor: color.withOpacity(0.15), valueColor: AlwaysStoppedAnimation<Color>(color), strokeCap: StrokeCap.round), 
-                Center(child: Text("${(progress * 100).toInt()}%", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)))
-              ]
-            )
-          )
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, size: 24, color: color), const SizedBox(width: 6), Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54)))]), const Spacer(), Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [Text(count.toString(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), const SizedBox(width: 4), Text("Tugas", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black38))])])),
+          SizedBox(width: 44, height: 44, child: Stack(fit: StackFit.expand, children: [CircularProgressIndicator(value: progress, strokeWidth: 8, backgroundColor: color.withOpacity(0.15), valueColor: AlwaysStoppedAnimation<Color>(color), strokeCap: StrokeCap.round), Center(child: Text("${(progress * 100).toInt()}%", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)))]))
         ],
       ),
     );
@@ -357,29 +290,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildWeeklyActivityCard(bool isDarkMode) {
     final activity = _weeklyActivity;
-
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-      ),
+      decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Aktivitas Minggu Ini", 
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)
-              ),
-              Text(
-                "Senin - Minggu", 
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black45)
-              ),
+              Text("Aktivitas Minggu Ini", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
+              Text("Senin - Minggu", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black45)),
             ],
           ),
           const SizedBox(height: 20),
@@ -391,25 +312,12 @@ class _DashboardPageState extends State<DashboardPage> {
               children: activity.map((item) {
                 final double barPercent = (item['val'] as num).toDouble();
                 final double barHeight = (barPercent / 100) * 80;
-
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      width: 14,
-                      height: barHeight,
-                      decoration: BoxDecoration(
-                        color: barPercent > 10 ? Colors.purpleAccent : (isDarkMode ? Colors.white12 : Colors.grey.shade300),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                      ),
-                    ),
+                    AnimatedContainer(duration: const Duration(milliseconds: 500), curve: Curves.easeOutCubic, width: 14, height: barHeight, decoration: BoxDecoration(color: barPercent > 10 ? Colors.purpleAccent : (isDarkMode ? Colors.white12 : Colors.grey.shade300), borderRadius: const BorderRadius.vertical(top: Radius.circular(6)))),
                     const SizedBox(height: 8),
-                    Text(
-                      item['day'],
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black45),
-                    ),
+                    Text(item['day'], style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black45)),
                   ],
                 );
               }).toList(),
@@ -424,43 +332,20 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final timeString = "${_currentTime.hour.toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')}";
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    final currentHour = _currentTime.hour;
-    final isDaytime = currentHour >= 6 && currentHour < 18;
+    final isDaytime = _currentTime.hour >= 6 && _currentTime.hour < 18;
 
     return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), 
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-        )
-      ),
+      decoration: BoxDecoration(image: DecorationImage(image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), fit: BoxFit.cover, alignment: Alignment.topCenter)),
       child: Scaffold(
-        resizeToAvoidBottomInset: false, 
-        backgroundColor: Colors.transparent,
-        extendBodyBehindAppBar: true,
+        resizeToAvoidBottomInset: false, backgroundColor: Colors.transparent, extendBodyBehindAppBar: true,
         appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85), 
-          elevation: 0, 
-          titleSpacing: 16,
+          backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85), elevation: 0, titleSpacing: 16,
           title: FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
               children: [
-                Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)), 
-                const SizedBox(width: 8),
-                Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () { _fetchDashboardData(); _initLocation(); },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
-                    decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), 
-                    child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))])
-                  ),
-                ),
+                Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)), const SizedBox(width: 8), Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)), const SizedBox(width: 8),
+                GestureDetector(onTap: () { setState(() => _weatherLocation = "memuat..."); _fetchDashboardData(); _initLocation(); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))]))),
               ],
             ),
           ),
@@ -470,9 +355,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Padding(
               padding: const EdgeInsets.only(right: 16.0, left: 4.0),
               child: GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
-                },
+                onTap: widget.onNavigateToProfile,
                 child: ValueListenableBuilder<Map<String, String>>(
                   valueListenable: profileNotifier,
                   builder: (context, profile, child) {
@@ -489,18 +372,13 @@ class _DashboardPageState extends State<DashboardPage> {
           child: _isLoading 
             ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent))
             : RefreshIndicator(
-                onRefresh: _fetchDashboardData, 
-                color: Colors.purpleAccent,
+                onRefresh: () async { setState(() => _weatherLocation = "memuat..."); await _fetchDashboardData(); await _initLocation(); }, color: Colors.purpleAccent,
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                  physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ValueListenableBuilder<Map<String, String>>(
-                        valueListenable: profileNotifier,
-                        builder: (context, profile, child) => Text("Selamat Datang, ${profile['name']}! 👋", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis)
-                      ),
+                      ValueListenableBuilder<Map<String, String>>(valueListenable: profileNotifier, builder: (context, profile, child) => Text("Selamat Datang, ${profile['name']}! 👋", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       const SizedBox(height: 4),
                       Text("Berikut ringkasan progres dan agenda tugasmu.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 16),
@@ -509,38 +387,16 @@ class _DashboardPageState extends State<DashboardPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
-                            child: Row(
-                              children: [
-                                _buildWeatherIcon(isDaytime),
-                                const SizedBox(width: 8),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(_weatherTemp, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                    SizedBox(width: 85, child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54))),
-                                  ],
-                                ),
-                              ],
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
+                            child: Row(children: [_buildWeatherIcon(isDaytime), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_weatherTemp, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), SizedBox(width: 85, child: Text(_weatherLocation, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)))])]),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
-                            child: Text(timeString, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purpleAccent.shade100 : Colors.purpleAccent, letterSpacing: 1, fontFamily: 'monospace')),
-                          ),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]), child: Text(timeString, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.purpleAccent.shade100 : Colors.purpleAccent, letterSpacing: 1, fontFamily: 'monospace'))),
                         ],
                       ),
                       const SizedBox(height: 20),
                       
                       GridView.count(
-                        crossAxisCount: 2, 
-                        crossAxisSpacing: 12, 
-                        mainAxisSpacing: 12, 
-                        childAspectRatio: 2.1, 
-                        shrinkWrap: true, 
-                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 2.1, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildAllTasksCard("Semua Tugas", _totalTasks, isDarkMode),
                           _buildDonutCard("Hari Ini", _todayTasksCount, Icons.local_fire_department, Colors.orange, _totalTasks > 0 ? _todayTasksCount / _totalTasks : 0, isDarkMode),
@@ -550,60 +406,42 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      _buildWeeklyActivityCard(isDarkMode),
-                      const SizedBox(height: 20),
-
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), 
-                          borderRadius: BorderRadius.circular(20), 
-                          border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), 
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]
-                        ),
+                        decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))]),
                         child: Column(
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text("Fokus Hari Ini", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                                GestureDetector(
-                                  onTap: widget.onNavigateToTasks, 
-                                  child: const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))
-                                ),
+                                GestureDetector(onTap: widget.onNavigateToTasks, child: const Text("Lihat Semua", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))),
                               ],
                             ),
                             const SizedBox(height: 14),
                             _todayTasks.isEmpty
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 24),
-                                  child: Center(
-                                    child: Text("Tidak ada agenda tugas hari ini ☕", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold, fontSize: 12))
+                              ? Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Center(child: Text("Tidak ada agenda tugas hari ini ☕", textAlign: TextAlign.center, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.bold, fontSize: 12))))
+                              : ConstrainedBox(
+                                  constraints: const BoxConstraints(maxHeight: 250),
+                                  child: RawScrollbar(
+                                    thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
+                                    child: ListView.builder(
+                                      padding: EdgeInsets.zero, shrinkWrap: true, physics: const BouncingScrollPhysics(), itemCount: _todayTasks.length,
+                                      itemBuilder: (context, index) {
+                                        final task = _todayTasks[index];
+                                        final catData = task['categories'];
+                                        String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
+                                        String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
+                                        return TaskItemCard(task: task, isDarkMode: isDarkMode, catName: catName, catColor: _getCategoryColor(catColorStr, catName), onToggle: _toggleTaskDone, showActions: false);
+                                      },
+                                    ),
                                   ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(), 
-                                  itemCount: _todayTasks.length,
-                                  itemBuilder: (context, index) {
-                                    final task = _todayTasks[index];
-                                    final catData = task['categories'];
-                                    String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
-                                    String catColorStr = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['color'] : (catData is Map ? catData['color'] : "")) ?? "" : "";
-                                    
-                                    return TaskItemCard(
-                                      task: task, 
-                                      isDarkMode: isDarkMode, 
-                                      catName: catName, 
-                                      catColor: _getCategoryColor(catColorStr, catName),
-                                      onToggle: _toggleTaskDone,
-                                      showActions: false, 
-                                    );
-                                  },
                                 ),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 20),
+                      _buildWeeklyActivityCard(isDarkMode),
                     ],
                   ),
                 ),

@@ -7,12 +7,12 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:task_flow/main.dart'; 
 import '../tasks/widgets/task_item.dart'; 
 import 'package:task_flow/widgets/notification_bell.dart';
-import '../profile/profile_page.dart';
 
 class CalendarPage extends StatefulWidget {
   final VoidCallback onNavigateToTasks;
+  final VoidCallback onNavigateToProfile; // 1. TAMBAHAN CALLBACK PROFIL
 
-  const CalendarPage({super.key, required this.onNavigateToTasks});
+  const CalendarPage({super.key, required this.onNavigateToTasks, required this.onNavigateToProfile});
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
@@ -39,13 +39,11 @@ class _CalendarPageState extends State<CalendarPage> {
     _fetchData();
     _fetchHolidays(_activeYear);
 
-    // KABEL REAL-TIME SPESIFIK CALENDAR (Tugas)
     _taskChannel = Supabase.instance.client
         .channel('calendar_tasks_sync')
         .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'tasks', callback: (payload) => _fetchData())
         .subscribe();
         
-    // KABEL REAL-TIME SPESIFIK CALENDAR (Profil)
     _profileChannel = Supabase.instance.client
         .channel('calendar_profiles_sync')
         .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'profiles', callback: (payload) => _fetchData())
@@ -111,17 +109,19 @@ class _CalendarPageState extends State<CalendarPage> {
     return Color(int.parse(hex, radix: 16));
   }
   
-  // Fungsi Cepat Ubah Status Tugas dari Calendar
   Future<void> _toggleTaskDone(String id, bool currentStatus) async {
     final newStatus = !currentStatus;
     await Supabase.instance.client.from('tasks').update({'is_completed': newStatus}).eq('id', id);
   }
 
+  // 2. PERBAIKAN TIMEZONE: Parse ke lokal dulu baru disamakan dengan tanggal kalender
   List<dynamic> get _tasksForSelectedDate {
     final selectedStr = "${_selectedDay.year}-${_selectedDay.month.toString().padLeft(2, '0')}-${_selectedDay.day.toString().padLeft(2, '0')}";
     return _allTasks.where((t) {
       if (t['due_date'] == null) return false;
-      return t['due_date'].toString().startsWith(selectedStr);
+      final localDate = DateTime.parse(t['due_date'].toString()).toLocal();
+      final localDateStr = "${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}";
+      return localDateStr == selectedStr;
     }).toList();
   }
 
@@ -169,9 +169,7 @@ class _CalendarPageState extends State<CalendarPage> {
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 4.0),
             child: GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
-              },
+              onTap: widget.onNavigateToProfile, // 3. PEMANGGILAN CALLBACK NAVIGASI PROFIL
               child: ValueListenableBuilder<Map<String, String>>(
                 valueListenable: profileNotifier,
                 builder: (context, profile, child) {
@@ -331,6 +329,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             : RawScrollbar(
                                 thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
                                 child: ListView.builder(
+                                  padding: EdgeInsets.zero,
                                   physics: const BouncingScrollPhysics(),
                                   itemCount: _tasksForSelectedDate.length,
                                   itemBuilder: (context, index) {

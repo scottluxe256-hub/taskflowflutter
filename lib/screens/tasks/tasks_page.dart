@@ -5,10 +5,11 @@ import 'widgets/task_item.dart';
 import 'widgets/task_modal.dart';
 import '../../utils/sweet_alert.dart'; 
 import 'package:task_flow/widgets/notification_bell.dart';
-import '../profile/profile_page.dart';
 
 class TasksPage extends StatefulWidget {
-  const TasksPage({super.key});
+  final VoidCallback onNavigateToProfile; // TAMBAHKAN INI
+
+  const TasksPage({super.key, required this.onNavigateToProfile});
 
   @override
   State<TasksPage> createState() => _TasksPageState();
@@ -33,21 +34,7 @@ class _TasksPageState extends State<TasksPage> {
   void initState() {
     super.initState();
     _fetchData();
-    
-    // KABEL REALTIME: Pantau tabel tasks dan categories sekaligus
-    _taskChannel = Supabase.instance.client
-        .channel('public:tasks_view')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'tasks',
-            callback: (payload) => _fetchData())
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'categories',
-            callback: (payload) => _fetchData())
-        .subscribe();
+    _taskChannel = Supabase.instance.client.channel('public:tasks_view').onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'tasks', callback: (payload) => _fetchData()).onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'categories', callback: (payload) => _fetchData()).subscribe();
   }
 
   @override
@@ -60,80 +47,40 @@ class _TasksPageState extends State<TasksPage> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
-      
-      // 1. Ambil data profil
       try {
         final profile = await Supabase.instance.client.from('profiles').select('*').eq('id', user.id).maybeSingle();
-        if (profile != null && mounted) {
-           _avatarUrl = profile['avatar_url'] ?? "";
-           _userName = profile['full_name'] ?? user.email?.split('@')[0] ?? 'User';
-        }
+        if (profile != null && mounted) { _avatarUrl = profile['avatar_url'] ?? ""; _userName = profile['full_name'] ?? user.email?.split('@')[0] ?? 'User'; }
       } catch (_) {}
-
-      // 2. Ambil Kategori Global (user_id IS NULL) dan Kustom milik user
       try {
-        final cats = await Supabase.instance.client
-            .from('categories')
-            .select('*')
-            .or('user_id.is.null,user_id.eq.${user.id}')
-            .order('created_at', ascending: true);
+        final cats = await Supabase.instance.client.from('categories').select('*').or('user_id.is.null,user_id.eq.${user.id}').order('created_at', ascending: true);
         if (mounted) setState(() => _categories = cats);
       } catch (_) {}
-
-      // 3. Ambil Tugas yang tidak disembunyikan
-      final response = await Supabase.instance.client
-          .from('tasks')
-          .select('*, categories(name, color)')
-          .eq('user_id', user.id)
-          .eq('is_hidden', false)
-          .order('created_at', ascending: _sortBy == 'terlama');
-          
-      if (mounted) {
-        setState(() { 
-          _tasks = response; 
-          _isLoading = false; 
-        });
-        profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl};
-      }
-    } catch (e) { 
-      if (mounted) setState(() => _isLoading = false); 
-    }
+      final response = await Supabase.instance.client.from('tasks').select('*, categories(name, color)').eq('user_id', user.id).eq('is_hidden', false).order('created_at', ascending: _sortBy == 'terlama');
+      if (mounted) { setState(() { _tasks = response; _isLoading = false; }); profileNotifier.value = {'name': _userName, 'avatar': _avatarUrl}; }
+    } catch (e) { if (mounted) setState(() => _isLoading = false); }
   }
 
   Color _getCategoryColor(String? colorStr, String? name) {
     final s = (colorStr ?? "").toLowerCase();
     final n = (name ?? "").toLowerCase();
-
-    if (s.startsWith('#')) {
-      try {
-        String hex = s.replaceAll('#', '');
-        if (hex.length == 6) hex = 'FF$hex';
-        return Color(int.parse(hex, radix: 16));
-      } catch (_) {}
-    }
-
+    if (s.startsWith('#')) { try { String hex = s.replaceAll('#', ''); if (hex.length == 6) hex = 'FF$hex'; return Color(int.parse(hex, radix: 16)); } catch (_) {} }
     if (s.contains("amber") || s.contains("orange") || n == "kerja") return const Color(0xFFF59E0B);
     if (s.contains("blue") || n == "sekolah") return const Color(0xFF3B82F6);
     if (s.contains("emerald") || s.contains("green") || n == "pribadi") return const Color(0xFF10B981);
     if (s.contains("rose") || s.contains("pink") || s.contains("red")) return const Color(0xFFF43F5E);
-
     return Colors.purpleAccent;
   }
 
   List<dynamic> get _filteredTasks {
     return _tasks.where((task) {
       final catData = task['categories'];
-      String catName = catData != null 
-          ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" 
-          : "Umum";
-          
+      String catName = catData != null ? (catData is List && catData.isNotEmpty ? catData[0]['name'] : (catData is Map ? catData['name'] : "Umum")) ?? "Umum" : "Umum";
       final q = _searchQuery.toLowerCase();
       final matchSearch = q.isEmpty || (task['title'] ?? "").toString().toLowerCase().contains(q) || catName.toLowerCase().contains(q);
       final matchCategory = _activeCategory == "semua" || catName.toLowerCase() == _activeCategory.toLowerCase();
-      
       bool matchStatus = true;
       final todayStr = DateTime.now().toIso8601String().split("T")[0];
-      final taskDateStr = task['due_date'] != null ? task['due_date'].toString().split("T")[0] : "";
+      final taskDateStr = task['due_date'] != null ? DateTime.parse(task['due_date'].toString()).toLocal().toIso8601String().split("T")[0] : "";
       final isCompleted = task['is_completed'] == true;
 
       if (_activeFilter == "today") matchStatus = task['due_date'] != null && taskDateStr == todayStr;
@@ -147,83 +94,27 @@ class _TasksPageState extends State<TasksPage> {
 
   Future<void> _toggleTaskDone(String id, bool currentStatus) async {
     final newStatus = !currentStatus;
-    
-    setState(() { 
-      final idx = _tasks.indexWhere((t) => t['id'] == id); 
-      if (idx != -1) _tasks[idx]['is_completed'] = newStatus; 
-    });
-
+    setState(() { final idx = _tasks.indexWhere((t) => t['id'] == id); if (idx != -1) _tasks[idx]['is_completed'] = newStatus; });
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
-
       final profile = await Supabase.instance.client.from('profiles').select('total_xp, auto_delete_tasks').eq('id', user.id).maybeSingle();
       bool isAutoDelete = profile?['auto_delete_tasks'] == true;
-
       final updatePayload = {'is_completed': newStatus};
-      if (isAutoDelete && newStatus == true) {
-        updatePayload['is_hidden'] = true;
-        setState(() => _tasks.removeWhere((t) => t['id'] == id)); 
-      }
-
+      if (isAutoDelete && newStatus == true) { updatePayload['is_hidden'] = true; setState(() => _tasks.removeWhere((t) => t['id'] == id)); }
       await Supabase.instance.client.from('tasks').update(updatePayload).eq('id', id);
-      
-      if (profile != null) {
-        int currentXp = profile['total_xp'] != null ? int.parse(profile['total_xp'].toString()) : 0;
-        int newXp = newStatus ? currentXp + 10 : currentXp - 10;
-        if (newXp < 0) newXp = 0; 
-        await Supabase.instance.client.from('profiles').update({'total_xp': newXp}).eq('id', user.id);
-      }
-      
-      if (newStatus && mounted) {
-        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-        SweetAlert.show(
-          context: context, 
-          title: isAutoDelete ? "Selesai & Dihapus! 🎉" : "Tugas Selesai! 🎉", 
-          message: "Mantap! Lanjutkan semangatmu. (+10 XP)", 
-          isSuccess: true, 
-          isDarkMode: isDarkMode
-        );
-      }
-    } catch (e) {
-      debugPrint("Error update task/xp: $e");
-    }
+      if (profile != null) { int currentXp = profile['total_xp'] != null ? int.parse(profile['total_xp'].toString()) : 0; int newXp = newStatus ? currentXp + 10 : currentXp - 10; if (newXp < 0) newXp = 0; await Supabase.instance.client.from('profiles').update({'total_xp': newXp}).eq('id', user.id); }
+      if (newStatus && mounted) { SweetAlert.show(context: context, title: isAutoDelete ? "Selesai & Dihapus! 🎉" : "Tugas Selesai! 🎉", message: "Mantap! Lanjutkan semangatmu. (+10 XP)", isSuccess: true, isDarkMode: Theme.of(context).brightness == Brightness.dark); }
+    } catch (e) {}
   }
 
   Future<void> _deleteTask(String id) async {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    SweetAlert.show(
-      context: context, 
-      title: "Hapus Tugas?", 
-      message: "Tugas ini akan disembunyikan/dihapus dari daftar.", 
-      isSuccess: false, 
-      isDarkMode: isDarkMode, 
-      showCancel: true,
-      onConfirm: () async {
-        setState(() => _tasks.removeWhere((t) => t['id'] == id));
-        await Supabase.instance.client.from('tasks').update({'is_hidden': true}).eq('id', id);
-      }
-    );
+    SweetAlert.show(context: context, title: "Hapus Tugas?", message: "Tugas ini akan disembunyikan/dihapus dari daftar.", isSuccess: false, isDarkMode: isDarkMode, showCancel: true, onConfirm: () async { setState(() => _tasks.removeWhere((t) => t['id'] == id)); await Supabase.instance.client.from('tasks').update({'is_hidden': true}).eq('id', id); });
   }
 
   void _openTaskModal({Map<String, dynamic>? task}) {
-    showGeneralDialog(
-      context: context, 
-      barrierDismissible: true, 
-      barrierLabel: '', 
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) => TaskModalCenter(
-        taskToEdit: task, 
-        categories: _categories, 
-        onSuccess: _fetchData
-      ),
-      transitionBuilder: (context, anim1, anim2, child) => SlideTransition(
-        position: Tween(begin: const Offset(0, 1), end: const Offset(0, 0))
-            .animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)), 
-        child: child
-      ),
-    );
+    showGeneralDialog(context: context, barrierDismissible: true, barrierLabel: '', transitionDuration: const Duration(milliseconds: 300), pageBuilder: (context, anim1, anim2) => TaskModalCenter(taskToEdit: task, categories: _categories, onSuccess: _fetchData), transitionBuilder: (context, anim1, anim2, child) => SlideTransition(position: Tween(begin: const Offset(0, 1), end: const Offset(0, 0)).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)), child: child));
   }
 
   @override
@@ -231,38 +122,17 @@ class _TasksPageState extends State<TasksPage> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), 
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-        )
-      ),
+      decoration: BoxDecoration(image: DecorationImage(image: AssetImage(isDarkMode ? 'assets/images/bg_mobile_dark.webp' : 'assets/images/bg_mobile.webp'), fit: BoxFit.cover, alignment: Alignment.topCenter)),
       child: Scaffold(
-        resizeToAvoidBottomInset: true, 
-        backgroundColor: Colors.transparent, 
-        extendBodyBehindAppBar: true,
+        resizeToAvoidBottomInset: true, backgroundColor: Colors.transparent, extendBodyBehindAppBar: true,
         appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85), 
-          elevation: 0, 
-          titleSpacing: 16,
+          backgroundColor: isDarkMode ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.85), elevation: 0, titleSpacing: 16,
           title: FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
               children: [
-                Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)),
-                const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)),
-                const SizedBox(width: 8),
-                Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _fetchData,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
-                    decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), 
-                    child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))])
-                  ),
-                ),
+                Text('Mobile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), const Text('Console', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.purpleAccent)), const SizedBox(width: 8), Text('- v2.4 -', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white54 : Colors.black54)), const SizedBox(width: 8),
+                GestureDetector(onTap: _fetchData, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purpleAccent.withOpacity(0.3))), child: Row(children: const [Icon(Icons.refresh, size: 14, color: Colors.purpleAccent), SizedBox(width: 4), Text('Refresh', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent))]))),
               ],
             ),
           ),
@@ -272,9 +142,7 @@ class _TasksPageState extends State<TasksPage> {
             Padding(
               padding: const EdgeInsets.only(right: 16.0, left: 4.0),
               child: GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
-                },
+                onTap: widget.onNavigateToProfile, // PANGGIL CALLBACK KE PROFIL
                 child: ValueListenableBuilder<Map<String, String>>(
                   valueListenable: profileNotifier,
                   builder: (context, profile, child) {
@@ -298,20 +166,14 @@ class _TasksPageState extends State<TasksPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("Tugas Saya", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.white : Colors.black87)), const SizedBox(height: 2), Text("Kelola tanggung jawab harianmu.", style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white70 : Colors.black54, fontWeight: FontWeight.w500))])),
-                      ElevatedButton.icon(
-                        onPressed: () => _openTaskModal(), 
-                        icon: const Icon(Icons.add, size: 16, color: Colors.white), 
-                        label: const Text("Tugas Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), 
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))
-                      )
+                      ElevatedButton.icon(onPressed: () => _openTaskModal(), icon: const Icon(Icons.add, size: 16, color: Colors.white), label: const Text("Tugas Baru", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))))
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
+                    padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
                     child: Column(
                       children: [
                         Row(
@@ -339,8 +201,7 @@ class _TasksPageState extends State<TasksPage> {
                 const SizedBox(height: 16),
                 Expanded(
                   child: Container(
-                    margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24), padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
+                    margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: isDarkMode ? Colors.blueGrey.shade900.withOpacity(0.85) : Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(20), border: Border.all(color: isDarkMode ? Colors.white24 : Colors.grey.shade200)),
                     child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)) : _filteredTasks.isEmpty ? const Center(child: Text("Kosong ☕", style: TextStyle(fontWeight: FontWeight.bold))) : RawScrollbar(
                       thumbColor: Colors.purpleAccent.withOpacity(0.5), radius: const Radius.circular(8), thickness: 4,
                       child: ListView.builder(
