@@ -44,6 +44,15 @@ jobs:
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle 2>/dev/null || true
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts 2>/dev/null || true
 
+      - name: Inject OneSignal Icons ke Android
+        run: |
+          # Buat direktori drawable jika belum ada
+          mkdir -p android/app/src/main/res/drawable/
+          
+          # Salin logo notifikasi dari lib/custom_icons ke folder native Android
+          cp lib/custom_icons/ic_onesignal_large_icon_default.png android/app/src/main/res/drawable/
+          cp lib/custom_icons/ic_stat_onesignal_default.png android/app/src/main/res/drawable/
+
       - name: Install Dependencies & Clean Cache
         run: |
           flutter clean
